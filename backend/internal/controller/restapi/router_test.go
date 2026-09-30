@@ -1,17 +1,21 @@
 package restapi
 
 import (
+	"context"
 	"database/sql"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/maksimovyuriy/tutorina/backend/internal/config"
+	"github.com/maksimovyuriy/tutorina/backend/internal/entity"
 )
 
 func TestHealth(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := NewRouter(&sql.DB{}, log)
+	router := NewRouter(&sql.DB{}, authStub{}, config.AuthConfig{}, log)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health", nil))
 
@@ -22,3 +26,15 @@ func TestHealth(t *testing.T) {
 		t.Fatalf("content type = %q", got)
 	}
 }
+
+type authStub struct{}
+
+func (authStub) Login(context.Context, string, string) (entity.Session, error) {
+	return entity.Session{}, nil
+}
+
+func (authStub) Authenticate(context.Context, string) (entity.User, error) {
+	return entity.User{}, nil
+}
+
+func (authStub) Logout(context.Context, string) error { return nil }

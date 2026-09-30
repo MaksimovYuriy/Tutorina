@@ -1,9 +1,25 @@
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
 html {
   min-width: 320px;
-  background: #f7f7f8;
+  background: #f6f1ea;
 }
 
 body {
+  min-width: 320px;
+  min-height: 100vh;
   margin: 0;
 }
 
+button,
+input {
+  font: inherit;
+}
+
+::selection {
+  background: #ded1e8;
+  color: #352e38;
+}

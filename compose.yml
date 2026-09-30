@@ -47,6 +47,8 @@ services:
       HTTP_WRITE_TIMEOUT: ${HTTP_WRITE_TIMEOUT:-15s}
       HTTP_READ_HEADER_TIMEOUT: ${HTTP_READ_HEADER_TIMEOUT:-5s}
       HTTP_IDLE_TIMEOUT: ${HTTP_IDLE_TIMEOUT:-60s}
+      AUTH_SESSION_TTL: ${AUTH_SESSION_TTL:-24h}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_USER: ${DB_USER:-tutorina}
@@ -79,6 +81,24 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    logging: *default-logging
+
+  create-user:
+    build:
+      context: ./backend
+    command: ["./tutorina-user", "-email", "${BOOTSTRAP_EMAIL:-}", "-roles", "${BOOTSTRAP_ROLES:-teacher}"]
+    profiles: ["tools"]
+    environment:
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-tutorina}
+      DB_PASSWORD: ${DB_PASSWORD:-tutorina}
+      DB_NAME: ${DB_NAME:-tutorina}
+      DB_SSL_MODE: ${DB_SSL_MODE:-disable}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     logging: *default-logging
 
   postgres:

@@ -10,6 +10,7 @@ type Config struct {
 	App  AppConfig  `env-prefix:"APP_"`
 	HTTP HTTPConfig `env-prefix:"HTTP_"`
 	DB   DBConfig   `env-prefix:"DB_"`
+	Auth AuthConfig `env-prefix:"AUTH_"`
 }
 
 type AppConfig struct {
@@ -32,6 +33,11 @@ type DBConfig struct {
 	Password string `env:"PASSWORD" env-default:"tutorina"`
 	Name     string `env:"NAME" env-default:"tutorina"`
 	SSLMode  string `env:"SSL_MODE" env-default:"disable"`
+}
+
+type AuthConfig struct {
+	SessionTTL   time.Duration `env:"SESSION_TTL" env-default:"24h"`
+	CookieSecure bool          `env:"COOKIE_SECURE" env-default:"true"`
 }
 
 func Load() (*Config, error) {

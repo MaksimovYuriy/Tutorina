@@ -21,6 +21,25 @@ docker compose up --build
 
 После запуска приложение доступно на <http://localhost:18080>. Стартовый экран проверяет всю цепочку `frontend → Caddy → backend → PostgreSQL` запросом к `/api/v1/ping`.
 
+Создать первую локальную учётную запись с ролями преподавателя и администратора:
+
+```bash
+BOOTSTRAP_EMAIL=teacher@example.com \
+BOOTSTRAP_PASSWORD='replace-with-a-long-password' \
+BOOTSTRAP_ROLES=teacher,admin \
+docker compose --profile tools run --rm create-user
+```
+
+Пароль должен содержать не менее 12 символов. Команда хранит только bcrypt-хеш; повторный email будет отклонён.
+
+Маршруты авторизации:
+
+- `POST /api/v1/auth/sessions` — вход по `email` и `password`;
+- `GET /api/v1/auth/me` — текущий пользователь и его роли;
+- `DELETE /api/v1/auth/session` — завершение сессии.
+
+Сессия передаётся в `HttpOnly`, `SameSite=Strict` cookie. Для локального HTTP `AUTH_COOKIE_SECURE=false`; при будущем размещении за HTTPS параметр необходимо включить.
+
 Остановить сервисы:
 
 ```bash

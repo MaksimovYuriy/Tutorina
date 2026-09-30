@@ -2,12 +2,13 @@ package restapi
 
 import (
 	"database/sql"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/maksimovyuriy/tutorina/backend/internal/config"
+	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/apiresponse"
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/middleware"
 )
 
@@ -17,7 +18,7 @@ type statusResponse struct {
 	Time     string `json:"time,omitempty"`
 }
 
-func NewRouter(database *sql.DB, log *slog.Logger) http.Handler {
+func NewRouter(database *sql.DB, authService AuthService, authConfig config.AuthConfig, log *slog.Logger) http.Handler {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestLogger(log))
 	router.Use(middleware.Recover(log))
@@ -25,6 +26,7 @@ func NewRouter(database *sql.DB, log *slog.Logger) http.Handler {
 	router.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, statusResponse{Status: "ok"})
 	})
+	auth := newAuthController(authService, authConfig.CookieSecure)
 	router.Route("/v1", func(router chi.Router) {
 		router.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 			if err := database.PingContext(r.Context()); err != nil {
@@ -38,13 +40,15 @@ func NewRouter(database *sql.DB, log *slog.Logger) http.Handler {
 				Time:     time.Now().UTC().Format(time.RFC3339),
 			})
 		})
+
+		router.Post("/auth/sessions", auth.login)
+		router.Delete("/auth/session", auth.logout)
+		router.With(middleware.RequireAuth(authService, log)).Get("/auth/me", auth.me)
 	})
 
 	return router
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
+	apiresponse.Write(w, status, value)
 }
