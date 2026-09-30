@@ -1,0 +1,103 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-18080}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    logging: *default-logging
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging: *default-logging
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      HTTP_ADDRESS: 0.0.0.0
+      HTTP_PORT: 8081
+      HTTP_READ_TIMEOUT: ${HTTP_READ_TIMEOUT:-15s}
+      HTTP_WRITE_TIMEOUT: ${HTTP_WRITE_TIMEOUT:-15s}
+      HTTP_READ_HEADER_TIMEOUT: ${HTTP_READ_HEADER_TIMEOUT:-5s}
+      HTTP_IDLE_TIMEOUT: ${HTTP_IDLE_TIMEOUT:-60s}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-tutorina}
+      DB_PASSWORD: ${DB_PASSWORD:-tutorina}
+      DB_NAME: ${DB_NAME:-tutorina}
+      DB_SSL_MODE: ${DB_SSL_MODE:-disable}
+    healthcheck:
+      test: ["CMD", "/app/tutorina-api", "healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    logging: *default-logging
+
+  migrate:
+    build:
+      context: ./backend
+    command: ["./tutorina-migrate"]
+    restart: "no"
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-tutorina}
+      DB_PASSWORD: ${DB_PASSWORD:-tutorina}
+      DB_NAME: ${DB_NAME:-tutorina}
+      DB_SSL_MODE: ${DB_SSL_MODE:-disable}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-tutorina}
+      POSTGRES_USER: ${DB_USER:-tutorina}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-tutorina}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
