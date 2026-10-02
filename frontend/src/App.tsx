@@ -1,9 +1,14 @@
 import { AdminHome } from './pages/AdminHome/AdminHome'
+import { AdminOffersPage } from './pages/AdminOffersPage/AdminOffersPage'
 import { LoginPage } from './pages/LoginPage/LoginPage'
 import { TeachersPage } from './pages/TeachersPage/TeachersPage'
 import { TeacherHome } from './pages/TeacherHome/TeacherHome'
 
 export function App() {
+  if (window.location.pathname.startsWith('/admin/offers')) {
+    return <AdminOffersPage />
+  }
+
   if (window.location.pathname.startsWith('/admin')) {
     return <AdminHome />
   }

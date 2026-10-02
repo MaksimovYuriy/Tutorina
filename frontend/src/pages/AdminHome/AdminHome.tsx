@@ -186,7 +186,10 @@ export function AdminHome() {
               <BrandLink />
               <Typography component="h1" variant="h3">Преподаватели</Typography>
             </div>
-            <Button variant="outlined" onClick={handleLogout}>Выйти</Button>
+            <Stack direction="row" spacing={1}>
+              <Button href="/admin/offers" variant="outlined">Направления</Button>
+              <Button variant="outlined" onClick={handleLogout}>Выйти</Button>
+            </Stack>
           </Stack>
 
           {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}

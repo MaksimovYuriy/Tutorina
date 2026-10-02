@@ -25,6 +25,39 @@ export interface TeacherProfile {
 
 export type TeacherProfileInput = Pick<TeacherProfile, 'displayName' | 'education' | 'experience' | 'approach' | 'isPublished'>
 
+export type OfferFormat = 'online' | 'offline' | 'both'
+
+export interface TeacherOffer {
+  id: string
+  offerId: string
+  teacherProfileId: string
+  teacherDisplayName: string
+  durationMinutes: number | null
+  priceRubles: number | null
+  isPublished: boolean
+}
+
+export interface Offer {
+  id: string
+  title: string
+  description: string
+  goal: string
+  defaultDurationMinutes: number
+  format: OfferFormat
+  priceRubles: number | null
+  isPublished: boolean
+  teachers: TeacherOffer[]
+}
+
+export type OfferInput = Omit<Offer, 'id' | 'teachers'>
+
+export interface TeacherOfferInput {
+  teacherProfileId: number
+  durationMinutes: number | null
+  priceRubles: number | null
+  isPublished: boolean
+}
+
 interface TeacherProfilesDocument {
   data: Array<{ id: string; attributes: Omit<TeacherProfile, 'id'> }>
 }
@@ -163,6 +196,46 @@ export async function archiveTeacherProfile(profileId: string): Promise<void> {
   await request<void>(`/api/v1/admin/teachers/${profileId}`, { method: 'DELETE' })
 }
 
+export async function getOffers(signal?: AbortSignal): Promise<Offer[]> {
+  const document = await request<{ data: Array<{ id: string; attributes: Omit<Offer, 'id'> }> }>('/api/v1/admin/offers/', { signal })
+  return document.data.map(({ id, attributes }) => ({ id, ...attributes }))
+}
+
+export async function getPublicOffers(signal?: AbortSignal): Promise<Offer[]> {
+  const document = await request<{ data: Array<{ id: string; attributes: Omit<Offer, 'id'> }> }>('/api/v1/offers', { signal })
+  return document.data.map(({ id, attributes }) => ({ id, ...attributes }))
+}
+
+export async function createOffer(offer: OfferInput): Promise<Offer> {
+  return sendOffer('/api/v1/admin/offers/', 'POST', offer)
+}
+
+export async function updateOffer(offerId: string, offer: OfferInput): Promise<Offer> {
+  return sendOffer(`/api/v1/admin/offers/${offerId}`, 'PUT', offer)
+}
+
+export async function archiveOffer(offerId: string): Promise<void> {
+  await request<void>(`/api/v1/admin/offers/${offerId}`, { method: 'DELETE' })
+}
+
+export async function assignTeacherToOffer(offerId: string, assignment: TeacherOfferInput): Promise<TeacherOffer> {
+  const document = await request<{ data: { id: string; attributes: Omit<TeacherOffer, 'id'> } }>(`/api/v1/admin/offers/${offerId}/teachers`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(assignment),
+  })
+  return { id: document.data.id, ...document.data.attributes }
+}
+
+export async function updateTeacherOffer(assignmentId: string, assignment: TeacherOfferInput): Promise<TeacherOffer> {
+  const document = await request<{ data: { id: string; attributes: Omit<TeacherOffer, 'id'> } }>(`/api/v1/admin/teacher-offers/${assignmentId}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(assignment),
+  })
+  return { id: document.data.id, ...document.data.attributes }
+}
+
+export async function removeTeacherFromOffer(assignmentId: string): Promise<void> {
+  await request<void>(`/api/v1/admin/teacher-offers/${assignmentId}`, { method: 'DELETE' })
+}
+
 async function getProfiles(url: string, signal?: AbortSignal): Promise<TeacherProfile[]> {
   const document = await request<TeacherProfilesDocument>(url, { signal })
   return document.data.map(({ id, attributes }) => ({ id, ...attributes }))
@@ -173,6 +246,15 @@ async function sendTeacherProfile(url: string, method: 'POST' | 'PUT', profile: 
     method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(profile),
+  })
+  return { id: document.data.id, ...document.data.attributes }
+}
+
+async function sendOffer(url: string, method: 'POST' | 'PUT', offer: OfferInput): Promise<Offer> {
+  const document = await request<{ data: { id: string; attributes: Omit<Offer, 'id'> } }>(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(offer),
   })
   return { id: document.data.id, ...document.data.attributes }
 }

@@ -19,7 +19,7 @@ type statusResponse struct {
 	Time     string `json:"time,omitempty"`
 }
 
-func NewRouter(database *sql.DB, authService AuthService, teacherProfiles TeacherProfileService, teacherPhotos http.Handler, authConfig config.AuthConfig, log *slog.Logger) http.Handler {
+func NewRouter(database *sql.DB, authService AuthService, teacherProfiles TeacherProfileService, offers OfferService, teacherPhotos http.Handler, authConfig config.AuthConfig, log *slog.Logger) http.Handler {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestLogger(log))
 	router.Use(middleware.Recover(log))
@@ -29,6 +29,7 @@ func NewRouter(database *sql.DB, authService AuthService, teacherProfiles Teache
 	})
 	auth := newAuthController(authService, authConfig.CookieSecure)
 	teachers := teacherProfileController{service: teacherProfiles}
+	offerController := offerController{service: offers}
 	router.Route("/v1", func(router chi.Router) {
 		if teacherPhotos != nil {
 			router.Handle("/media/teacher-photos/*", http.StripPrefix("/v1/media/teacher-photos/", teacherPhotos))
@@ -59,6 +60,9 @@ func NewRouter(database *sql.DB, authService AuthService, teacherProfiles Teache
 			router.Delete("/profile/photo", teachers.removeMinePhoto)
 		})
 		router.Get("/teachers", teachers.listPublic)
+		if offers != nil {
+			router.Get("/offers", offerController.listPublic)
+		}
 		router.Route("/admin/teachers", func(router chi.Router) {
 			router.Use(middleware.RequireAuth(authService, log))
 			router.Use(middleware.RequireRole(entity.RoleAdmin))
@@ -71,6 +75,23 @@ func NewRouter(database *sql.DB, authService AuthService, teacherProfiles Teache
 			router.Put("/{id}/password", teachers.resetPassword)
 			router.Delete("/{id}", teachers.archive)
 		})
+		if offers != nil {
+			router.Route("/admin/offers", func(router chi.Router) {
+				router.Use(middleware.RequireAuth(authService, log))
+				router.Use(middleware.RequireRole(entity.RoleAdmin))
+				router.Get("/", offerController.listAll)
+				router.Post("/", offerController.create)
+				router.Put("/{id}", offerController.update)
+				router.Delete("/{id}", offerController.archive)
+				router.Post("/{id}/teachers", offerController.assignTeacher)
+			})
+			router.Route("/admin/teacher-offers", func(router chi.Router) {
+				router.Use(middleware.RequireAuth(authService, log))
+				router.Use(middleware.RequireRole(entity.RoleAdmin))
+				router.Put("/{id}", offerController.updateAssignment)
+				router.Delete("/{id}", offerController.removeAssignment)
+			})
+		}
 	})
 
 	return router

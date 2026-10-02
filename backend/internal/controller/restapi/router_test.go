@@ -15,7 +15,7 @@ import (
 
 func TestHealth(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := NewRouter(&sql.DB{}, authStub{}, nil, nil, config.AuthConfig{}, log)
+	router := NewRouter(&sql.DB{}, authStub{}, nil, nil, nil, config.AuthConfig{}, log)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health", nil))
 
