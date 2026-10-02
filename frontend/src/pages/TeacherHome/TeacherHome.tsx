@@ -102,6 +102,7 @@ export function TeacherHome() {
             </div>
             <Stack direction="row" spacing={1}>
               <Button href="/teacher/schedule" variant="outlined">Расписание</Button>
+              <Button href="/teacher/applications" variant="outlined">Заявки</Button>
               <Button variant="outlined" onClick={handleLogout}>Выйти</Button>
             </Stack>
           </Stack>

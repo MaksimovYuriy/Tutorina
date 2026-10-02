@@ -19,7 +19,7 @@ type statusResponse struct {
 	Time     string `json:"time,omitempty"`
 }
 
-func NewRouter(database *sql.DB, authService AuthService, teacherProfiles TeacherProfileService, offers OfferService, lessons LessonService, teacherPhotos http.Handler, authConfig config.AuthConfig, log *slog.Logger) http.Handler {
+func NewRouter(database *sql.DB, authService AuthService, teacherProfiles TeacherProfileService, offers OfferService, lessons LessonService, applications ApplicationService, teacherPhotos http.Handler, authConfig config.AuthConfig, log *slog.Logger) http.Handler {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestLogger(log))
 	router.Use(middleware.Recover(log))
@@ -31,6 +31,7 @@ func NewRouter(database *sql.DB, authService AuthService, teacherProfiles Teache
 	teachers := teacherProfileController{service: teacherProfiles}
 	offerController := offerController{service: offers}
 	lessonController := lessonController{service: lessons}
+	applicationController := applicationController{service: applications}
 	router.Route("/v1", func(router chi.Router) {
 		if teacherPhotos != nil {
 			router.Handle("/media/teacher-photos/*", http.StripPrefix("/v1/media/teacher-photos/", teacherPhotos))
@@ -62,6 +63,10 @@ func NewRouter(database *sql.DB, authService AuthService, teacherProfiles Teache
 			if offers != nil {
 				router.Get("/offers", offerController.listMine)
 			}
+			if applications != nil {
+				router.Get("/applications", applicationController.listMine)
+				router.Put("/applications/{id}", applicationController.updateMine)
+			}
 			if lessons != nil {
 				router.Get("/lessons", lessonController.listMine)
 				router.Post("/lessons", lessonController.createMine)
@@ -76,6 +81,9 @@ func NewRouter(database *sql.DB, authService AuthService, teacherProfiles Teache
 		if lessons != nil {
 			router.Get("/lessons", lessonController.listPublic)
 		}
+		if applications != nil {
+			router.Post("/applications", applicationController.create)
+		}
 		router.Route("/admin/teachers", func(router chi.Router) {
 			router.Use(middleware.RequireAuth(authService, log))
 			router.Use(middleware.RequireRole(entity.RoleAdmin))
@@ -88,6 +96,14 @@ func NewRouter(database *sql.DB, authService AuthService, teacherProfiles Teache
 			router.Put("/{id}/password", teachers.resetPassword)
 			router.Delete("/{id}", teachers.archive)
 		})
+		if applications != nil {
+			router.Route("/admin/applications", func(router chi.Router) {
+				router.Use(middleware.RequireAuth(authService, log))
+				router.Use(middleware.RequireRole(entity.RoleAdmin))
+				router.Get("/", applicationController.listAll)
+				router.Put("/{id}", applicationController.updateAdmin)
+			})
+		}
 		if lessons != nil {
 			router.Route("/admin/lessons", func(router chi.Router) {
 				router.Use(middleware.RequireAuth(authService, log))

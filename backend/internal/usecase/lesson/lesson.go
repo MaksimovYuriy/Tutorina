@@ -122,6 +122,7 @@ func validateRange(from, to time.Time) error {
 func validateLesson(item *entity.Lesson) error {
 	item.GroupGoal = strings.TrimSpace(item.GroupGoal)
 	item.GroupLevel = strings.TrimSpace(item.GroupLevel)
+	item.Description = strings.TrimSpace(item.Description)
 	item.StartsAt = item.StartsAt.UTC()
 	item.EndsAt = item.EndsAt.UTC()
 	if item.TeacherOfferID <= 0 {
@@ -161,7 +162,7 @@ func validateLesson(item *entity.Lesson) error {
 	if item.Status != entity.LessonStatusPlanned {
 		item.EnrollmentOpen = false
 	}
-	if len([]rune(item.GroupGoal)) > 500 || len([]rune(item.GroupLevel)) > 160 {
+	if len([]rune(item.GroupGoal)) > 500 || len([]rune(item.GroupLevel)) > 160 || len([]rune(item.Description)) > 2000 {
 		return fmt.Errorf("%w: group details are too long", usecase.ErrInvalidInput)
 	}
 	return nil

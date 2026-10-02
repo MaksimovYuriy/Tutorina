@@ -24,6 +24,7 @@ const MOSCOW_TIME_ZONE = 'Europe/Moscow'
 
 interface ScheduleForm {
   teacherOfferId: string
+  description: string
   startsAt: string
   endsAt: string
   deliveryFormat: LessonInput['deliveryFormat']
@@ -98,6 +99,7 @@ export function SchedulePage() {
     setEditingId(lesson.id)
     setForm({
       teacherOfferId: lesson.teacherOfferId,
+      description: lesson.description,
       startsAt: toMoscowLocal(lesson.startsAt),
       endsAt: toMoscowLocal(lesson.endsAt),
       deliveryFormat: lesson.deliveryFormat,
@@ -120,6 +122,7 @@ export function SchedulePage() {
     }
     const input: LessonInput = {
       teacherOfferId: Number(form.teacherOfferId),
+      description: form.description,
       startsAt: fromMoscowLocal(form.startsAt).toISOString(),
       endsAt: fromMoscowLocal(form.endsAt).toISOString(),
       deliveryFormat: form.deliveryFormat,
@@ -187,6 +190,7 @@ export function SchedulePage() {
             </div>
             <Stack direction="row" spacing={1}>
               <Button href={isAdmin ? '/admin' : '/teacher'} variant="outlined">Назад в кабинет</Button>
+              <Button href={isAdmin ? '/admin/applications' : '/teacher/applications'} variant="outlined">Заявки</Button>
               <Button variant="outlined" onClick={handleLogout}>Выйти</Button>
             </Stack>
           </Stack>
@@ -212,6 +216,7 @@ export function SchedulePage() {
                   <Typography color="text.secondary" sx={{ mt: 0.5 }}>
                     {statusLabels[lesson.status]} · запись {lesson.enrollmentOpen ? 'открыта' : 'закрыта'}
                   </Typography>
+                  {lesson.description && <Typography sx={{ mt: 1 }}>{lesson.description}</Typography>}
                   {lesson.lessonType === 'group' && <Typography sx={{ mt: 1 }}>{lesson.groupLevel} · {lesson.groupGoal}</Typography>}
                   <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
                     <Button size="small" onClick={() => startEditing(lesson)}>Редактировать</Button>
@@ -228,6 +233,7 @@ export function SchedulePage() {
                 <TextField select required label={isAdmin ? 'Направление и преподаватель' : 'Направление'} value={form.teacherOfferId} onChange={(event) => selectAssignment(event.target.value)} disabled={assignmentOptions.length === 0}>
                   {assignmentOptions.map((option) => <MenuItem key={option.id} value={option.id}>{option.label}</MenuItem>)}
                 </TextField>
+                <TextField label="Описание занятия" multiline minRows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} helperText="Напишите, как проходит урок и как вы свяжетесь с учеником" />
                 <TextField label="Начало" type="datetime-local" required value={form.startsAt} onChange={(event) => setForm({ ...form, startsAt: event.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
                 <TextField label="Окончание" type="datetime-local" required value={form.endsAt} onChange={(event) => setForm({ ...form, endsAt: event.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
                 <TextField select label="Формат" value={form.deliveryFormat} onChange={(event) => setForm({ ...form, deliveryFormat: event.target.value as ScheduleForm['deliveryFormat'] })}>
@@ -271,7 +277,7 @@ function emptyForm(): ScheduleForm {
   start.setUTCMinutes(0, 0, 0)
   const end = new Date(start.getTime() + 60 * 60_000)
   return {
-    teacherOfferId: '', startsAt: toMoscowLocal(start.toISOString()), endsAt: toMoscowLocal(end.toISOString()),
+    teacherOfferId: '', description: '', startsAt: toMoscowLocal(start.toISOString()), endsAt: toMoscowLocal(end.toISOString()),
     deliveryFormat: 'online', lessonType: 'individual', capacity: 1, status: 'planned',
     enrollmentOpen: true, groupGoal: '', groupLevel: '',
   }

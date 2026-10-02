@@ -285,6 +285,7 @@ export interface Lesson {
   teacherDisplayName: string
   offerTitle: string
   priceRubles: number | null
+  description: string
   startsAt: string
   endsAt: string
   deliveryFormat: LessonDeliveryFormat
@@ -298,6 +299,7 @@ export interface Lesson {
 
 export interface LessonInput {
   teacherOfferId: number
+  description: string
   startsAt: string
   endsAt: string
   deliveryFormat: LessonDeliveryFormat
@@ -385,4 +387,69 @@ function mapOfferResource(resource: OfferResource): Offer {
     ...attributes,
     teachers: teachers.map(({ id, attributes: teacherAttributes }) => ({ id, ...teacherAttributes })),
   }
+}
+
+export type ApplicationStatus = 'new' | 'accepted' | 'rejected' | 'completed'
+
+export interface LessonApplication {
+  id: string
+  lessonId: string
+  offerTitle: string
+  teacherProfileId: string
+  teacherDisplayName: string
+  lessonStartsAt: string
+  lessonCapacity: number
+  fullName: string
+  phone: string
+  email: string
+  comment: string
+  status: ApplicationStatus
+  createdAt: string
+}
+
+export interface ApplicationInput {
+  lessonId: number
+  fullName: string
+  phone: string
+  email: string
+  comment: string
+}
+
+export async function createApplication(input: ApplicationInput): Promise<LessonApplication> {
+  const document = await request<{ data: { id: string; attributes: Omit<LessonApplication, 'id'> } }>('/api/v1/applications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  return { id: document.data.id, ...document.data.attributes }
+}
+
+export async function getAdminApplications(signal?: AbortSignal): Promise<LessonApplication[]> {
+  return getApplicationList('/api/v1/admin/applications/', signal)
+}
+
+export async function getMyApplications(signal?: AbortSignal): Promise<LessonApplication[]> {
+  return getApplicationList('/api/v1/teacher/applications', signal)
+}
+
+export async function updateAdminApplication(id: string, status: ApplicationStatus): Promise<LessonApplication> {
+  return updateApplication(`/api/v1/admin/applications/${id}`, status)
+}
+
+export async function updateMyApplication(id: string, status: ApplicationStatus): Promise<LessonApplication> {
+  return updateApplication(`/api/v1/teacher/applications/${id}`, status)
+}
+
+async function getApplicationList(url: string, signal?: AbortSignal): Promise<LessonApplication[]> {
+  const document = await request<{ data: Array<{ id: string; attributes: Omit<LessonApplication, 'id'> }> }>(url, { signal })
+  return document.data.map(({ id, attributes }) => ({ id, ...attributes }))
+}
+
+async function updateApplication(url: string, status: ApplicationStatus): Promise<LessonApplication> {
+  const document = await request<{ data: { id: string; attributes: Omit<LessonApplication, 'id'> } }>(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  })
+  return { id: document.data.id, ...document.data.attributes }
 }

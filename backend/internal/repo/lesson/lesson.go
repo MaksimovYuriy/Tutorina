@@ -33,7 +33,7 @@ func (r *Repo) ListMine(ctx context.Context, userID int64, from, to time.Time) (
 
 func (r *Repo) list(ctx context.Context, from, to time.Time, filter string, extraArgs []any) ([]entity.Lesson, error) {
 	query := `SELECT lessons.id, lessons.teacher_offer_id, lessons.teacher_profile_id, teacher_profiles.display_name,
-		lessons.offer_title, lessons.price_rubles, lessons.starts_at, lessons.ends_at, lessons.delivery_format,
+		lessons.offer_title, lessons.price_rubles, lessons.description, lessons.starts_at, lessons.ends_at, lessons.delivery_format,
 		lessons.lesson_type, lessons.capacity, lessons.status, lessons.enrollment_open, lessons.group_goal,
 		lessons.group_level, lessons.created_at, lessons.updated_at
 		FROM lessons
@@ -65,22 +65,22 @@ func (r *Repo) list(ctx context.Context, from, to time.Time, filter string, extr
 
 func (r *Repo) Create(ctx context.Context, item entity.Lesson, userID *int64) (entity.Lesson, error) {
 	const query = `INSERT INTO lessons (
-		teacher_offer_id, teacher_profile_id, offer_title, price_rubles, starts_at, ends_at,
+		teacher_offer_id, teacher_profile_id, offer_title, price_rubles, description, starts_at, ends_at,
 		delivery_format, lesson_type, capacity, status, enrollment_open, group_goal, group_level
 	)
 	SELECT teacher_offers.id, teacher_profiles.id, offers.title,
-		COALESCE(teacher_offers.price_rubles, offers.price_rubles), $2, $3, $4, $5, $6, $7, $8, $9, $10
+		COALESCE(teacher_offers.price_rubles, offers.price_rubles), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 	FROM teacher_offers
 	JOIN offers ON offers.id=teacher_offers.offer_id AND offers.archived_at IS NULL
 	JOIN teacher_profiles ON teacher_profiles.id=teacher_offers.teacher_profile_id AND teacher_profiles.archived_at IS NULL
 	WHERE teacher_offers.id=$1 AND teacher_offers.archived_at IS NULL
-		AND (offers.format='both' OR offers.format=$4)
-		AND ($11::bigint IS NULL OR teacher_profiles.user_id=$11)
-	RETURNING id, teacher_offer_id, teacher_profile_id, '', offer_title, price_rubles, starts_at, ends_at,
+		AND (offers.format='both' OR offers.format=$5)
+		AND ($12::bigint IS NULL OR teacher_profiles.user_id=$12)
+	RETURNING id, teacher_offer_id, teacher_profile_id, '', offer_title, price_rubles, description, starts_at, ends_at,
 		delivery_format, lesson_type, capacity, status, enrollment_open, group_goal, group_level, created_at, updated_at`
 	var created entity.Lesson
 	err := scan(r.database.QueryRowContext(ctx, query,
-		item.TeacherOfferID, item.StartsAt, item.EndsAt, item.DeliveryFormat, item.LessonType,
+		item.TeacherOfferID, item.Description, item.StartsAt, item.EndsAt, item.DeliveryFormat, item.LessonType,
 		item.Capacity, item.Status, item.EnrollmentOpen, item.GroupGoal, item.GroupLevel, userID,
 	), &created)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -104,22 +104,22 @@ func (r *Repo) Update(ctx context.Context, item entity.Lesson, userID *int64) (e
 		teacher_profile_id=teacher_profiles.id,
 		offer_title=offers.title,
 		price_rubles=COALESCE(teacher_offers.price_rubles, offers.price_rubles),
-		starts_at=$3, ends_at=$4, delivery_format=$5, lesson_type=$6, capacity=$7,
-		status=$8, enrollment_open=$9, group_goal=$10, group_level=$11, updated_at=CURRENT_TIMESTAMP
+		description=$3, starts_at=$4, ends_at=$5, delivery_format=$6, lesson_type=$7, capacity=$8,
+		status=$9, enrollment_open=$10, group_goal=$11, group_level=$12, updated_at=CURRENT_TIMESTAMP
 	FROM teacher_offers
 	JOIN offers ON offers.id=teacher_offers.offer_id AND offers.archived_at IS NULL
 	JOIN teacher_profiles ON teacher_profiles.id=teacher_offers.teacher_profile_id AND teacher_profiles.archived_at IS NULL
 	WHERE lessons.id=$1 AND lessons.archived_at IS NULL
 		AND teacher_offers.id=$2 AND teacher_offers.archived_at IS NULL
-		AND (offers.format='both' OR offers.format=$5)
-		AND ($12::bigint IS NULL OR (teacher_profiles.user_id=$12 AND lessons.teacher_profile_id=teacher_profiles.id))
+		AND (offers.format='both' OR offers.format=$6)
+		AND ($13::bigint IS NULL OR (teacher_profiles.user_id=$13 AND lessons.teacher_profile_id=teacher_profiles.id))
 	RETURNING lessons.id, lessons.teacher_offer_id, lessons.teacher_profile_id, '', lessons.offer_title,
-		lessons.price_rubles, lessons.starts_at, lessons.ends_at, lessons.delivery_format, lessons.lesson_type,
+		lessons.price_rubles, lessons.description, lessons.starts_at, lessons.ends_at, lessons.delivery_format, lessons.lesson_type,
 		lessons.capacity, lessons.status, lessons.enrollment_open, lessons.group_goal, lessons.group_level,
 		lessons.created_at, lessons.updated_at`
 	var updated entity.Lesson
 	err := scan(r.database.QueryRowContext(ctx, query,
-		item.ID, item.TeacherOfferID, item.StartsAt, item.EndsAt, item.DeliveryFormat, item.LessonType,
+		item.ID, item.TeacherOfferID, item.Description, item.StartsAt, item.EndsAt, item.DeliveryFormat, item.LessonType,
 		item.Capacity, item.Status, item.EnrollmentOpen, item.GroupGoal, item.GroupLevel, userID,
 	), &updated)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -168,7 +168,7 @@ type scanner interface{ Scan(...any) error }
 func scan(row scanner, item *entity.Lesson) error {
 	return row.Scan(
 		&item.ID, &item.TeacherOfferID, &item.TeacherProfileID, &item.TeacherDisplayName,
-		&item.OfferTitle, &item.PriceRubles, &item.StartsAt, &item.EndsAt, &item.DeliveryFormat,
+		&item.OfferTitle, &item.PriceRubles, &item.Description, &item.StartsAt, &item.EndsAt, &item.DeliveryFormat,
 		&item.LessonType, &item.Capacity, &item.Status, &item.EnrollmentOpen, &item.GroupGoal,
 		&item.GroupLevel, &item.CreatedAt, &item.UpdatedAt,
 	)

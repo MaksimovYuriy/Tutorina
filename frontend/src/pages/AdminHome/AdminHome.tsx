@@ -189,6 +189,7 @@ export function AdminHome() {
             <Stack direction="row" spacing={1}>
               <Button href="/admin/offers" variant="outlined">Направления</Button>
               <Button href="/admin/schedule" variant="outlined">Расписание</Button>
+              <Button href="/admin/applications" variant="outlined">Заявки</Button>
               <Button variant="outlined" onClick={handleLogout}>Выйти</Button>
             </Stack>
           </Stack>

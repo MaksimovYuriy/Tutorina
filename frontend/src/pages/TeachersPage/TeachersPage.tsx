@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Alert, Avatar, Box, Button, Chip, CircularProgress, Container, Stack, Typography } from '@mui/material'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Alert, Avatar, Box, Button, Chip, CircularProgress, Container, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material'
 import { BrandLink } from '../../components/BrandLink'
-import { getCurrentUser, getPublicLessons, getPublicOffers, getPublicTeacherProfiles, type CurrentUser, type Lesson, type Offer, type TeacherProfile } from '../../services/api'
+import { createApplication, getCurrentUser, getPublicLessons, getPublicOffers, getPublicTeacherProfiles, type CurrentUser, type Lesson, type Offer, type TeacherProfile } from '../../services/api'
 
 const formatLabels = {
   online: 'Онлайн',
@@ -16,6 +16,7 @@ export function TeachersPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -127,16 +128,20 @@ export function TeachersPage() {
                     <Typography color="primary" sx={{ fontWeight: 650 }}>{formatLessonTime(lesson.startsAt, lesson.endsAt)}</Typography>
                     <Typography component="h3" variant="h5" sx={{ mt: 1 }}>{lesson.offerTitle}</Typography>
                     <Typography color="text.secondary">{lesson.teacherDisplayName}</Typography>
+                    {lesson.description && <Typography sx={{ mt: 2 }}>{lesson.description}</Typography>}
                     <Typography sx={{ mt: 2 }}>{lesson.groupLevel} · {lesson.groupGoal}</Typography>
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
                       {lesson.deliveryFormat === 'online' ? 'Онлайн' : 'Очно'} · мест: {lesson.capacity}
                       {lesson.priceRubles !== null ? ` · ${lesson.priceRubles.toLocaleString('ru-RU')} ₽` : ''}
                     </Typography>
+                    <Button variant="contained" sx={{ mt: 2 }} onClick={() => setSelectedLesson(lesson)}>Оставить заявку</Button>
                   </Box>
                 ))}
               </Box>
             </Stack>
           )}
+
+          <ApplicationDialog key={selectedLesson?.id ?? 'closed'} lesson={selectedLesson} onClose={() => setSelectedLesson(null)} />
 
           {!loading && !failed && (
             <Stack component="section" spacing={3}>
@@ -166,6 +171,67 @@ export function TeachersPage() {
         </Stack>
       </Container>
     </Box>
+  )
+}
+
+interface ApplicationDialogProps {
+  lesson: Lesson | null
+  onClose: () => void
+}
+
+function ApplicationDialog({ lesson, onClose }: ApplicationDialogProps) {
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [comment, setComment] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!lesson) return
+    setSaving(true)
+    setError(null)
+    try {
+      await createApplication({ lessonId: Number(lesson.id), fullName, phone, email, comment })
+      setSent(true)
+    } catch {
+      setError('Не удалось отправить заявку. Проверьте данные и попробуйте ещё раз.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={lesson !== null} onClose={saving ? undefined : onClose} fullWidth maxWidth="sm">
+      <DialogTitle>{sent ? 'Заявка отправлена' : `Заявка на «${lesson?.offerTitle ?? ''}»`}</DialogTitle>
+      {sent ? (
+        <>
+          <DialogContent>
+            <Alert severity="success">Заявка отправлена. Ожидайте — преподаватель свяжется с вами по указанным контактным данным.</Alert>
+          </DialogContent>
+          <DialogActions><Button onClick={onClose}>Закрыть</Button></DialogActions>
+        </>
+      ) : (
+        <Box component="form" onSubmit={submit}>
+          <DialogContent>
+            <Stack spacing={2}>
+              {lesson && <Typography color="text.secondary">{lesson.teacherDisplayName} · {formatLessonTime(lesson.startsAt, lesson.endsAt)}</Typography>}
+              {error && <Alert severity="error">{error}</Alert>}
+              <TextField label="ФИО" required value={fullName} onChange={(event) => setFullName(event.target.value)} />
+              <TextField label="Телефон" required value={phone} onChange={(event) => setPhone(event.target.value)} helperText="Преподаватель свяжется с вами по этому номеру" />
+              <TextField label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+              <TextField label="Комментарий" multiline minRows={3} value={comment} onChange={(event) => setComment(event.target.value)} />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={onClose} disabled={saving}>Отмена</Button>
+            <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Отправляем…' : 'Отправить заявку'}</Button>
+          </DialogActions>
+        </Box>
+      )}
+    </Dialog>
   )
 }
 

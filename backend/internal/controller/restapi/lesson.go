@@ -31,6 +31,7 @@ type lessonController struct{ service LessonService }
 
 type lessonRequest struct {
 	TeacherOfferID int64     `json:"teacherOfferId"`
+	Description    string    `json:"description"`
 	StartsAt       time.Time `json:"startsAt"`
 	EndsAt         time.Time `json:"endsAt"`
 	DeliveryFormat string    `json:"deliveryFormat"`
@@ -48,6 +49,7 @@ type lessonAttributes struct {
 	TeacherDisplayName string    `json:"teacherDisplayName"`
 	OfferTitle         string    `json:"offerTitle"`
 	PriceRubles        *int      `json:"priceRubles"`
+	Description        string    `json:"description"`
 	StartsAt           time.Time `json:"startsAt"`
 	EndsAt             time.Time `json:"endsAt"`
 	DeliveryFormat     string    `json:"deliveryFormat"`
@@ -242,7 +244,7 @@ func scheduleRange(w http.ResponseWriter, r *http.Request, public bool) (time.Ti
 
 func (request lessonRequest) entity(id int64) entity.Lesson {
 	return entity.Lesson{
-		ID: id, TeacherOfferID: request.TeacherOfferID, StartsAt: request.StartsAt, EndsAt: request.EndsAt,
+		ID: id, TeacherOfferID: request.TeacherOfferID, Description: request.Description, StartsAt: request.StartsAt, EndsAt: request.EndsAt,
 		DeliveryFormat: request.DeliveryFormat, LessonType: request.LessonType, Capacity: request.Capacity,
 		Status: request.Status, EnrollmentOpen: request.EnrollmentOpen, GroupGoal: request.GroupGoal,
 		GroupLevel: request.GroupLevel,
@@ -264,7 +266,7 @@ func mapLesson(item entity.Lesson) lessonResource {
 			TeacherOfferID:     strconv.FormatInt(item.TeacherOfferID, 10),
 			TeacherProfileID:   strconv.FormatInt(item.TeacherProfileID, 10),
 			TeacherDisplayName: item.TeacherDisplayName, OfferTitle: item.OfferTitle,
-			PriceRubles: item.PriceRubles, StartsAt: item.StartsAt, EndsAt: item.EndsAt,
+			PriceRubles: item.PriceRubles, Description: item.Description, StartsAt: item.StartsAt, EndsAt: item.EndsAt,
 			DeliveryFormat: item.DeliveryFormat, LessonType: item.LessonType, Capacity: item.Capacity,
 			Status: item.Status, EnrollmentOpen: item.EnrollmentOpen, GroupGoal: item.GroupGoal,
 			GroupLevel: item.GroupLevel,

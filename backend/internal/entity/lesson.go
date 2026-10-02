@@ -21,6 +21,7 @@ type Lesson struct {
 	TeacherDisplayName string
 	OfferTitle         string
 	PriceRubles        *int
+	Description        string
 	StartsAt           time.Time
 	EndsAt             time.Time
 	DeliveryFormat     string
