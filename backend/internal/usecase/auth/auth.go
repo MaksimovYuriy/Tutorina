@@ -18,6 +18,8 @@ import (
 
 type UserRepository interface {
 	FindCredentialsByEmail(context.Context, string) (entity.Credentials, error)
+	FindCredentialsByID(context.Context, int64) (entity.Credentials, error)
+	UpdatePassword(context.Context, int64, string) error
 	FindByID(context.Context, int64) (entity.User, error)
 }
 
@@ -25,6 +27,7 @@ type SessionRepository interface {
 	Create(context.Context, int64, []byte, time.Time) error
 	FindActiveUserID(context.Context, []byte, time.Time) (int64, error)
 	Revoke(context.Context, []byte, time.Time) error
+	RevokeAll(context.Context, int64, time.Time) error
 }
 
 type Service struct {
@@ -83,6 +86,29 @@ func (service *Service) Authenticate(ctx context.Context, token string) (entity.
 	return user, err
 }
 
+func (service *Service) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error {
+	if userID <= 0 || len(newPassword) < 12 {
+		return usecase.ErrInvalidInput
+	}
+	credentials, err := service.users.FindCredentialsByID(ctx, userID)
+	if errors.Is(err, repo.ErrNotFound) {
+		return usecase.ErrUnauthorized
+	}
+	if err != nil {
+		return err
+	}
+	if bcrypt.CompareHashAndPassword([]byte(credentials.PasswordHash), []byte(currentPassword)) != nil {
+		return usecase.ErrInvalidCredentials
+	}
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	if err := service.users.UpdatePassword(ctx, userID, string(passwordHash)); err != nil {
+		return err
+	}
+	return service.sessions.RevokeAll(ctx, userID, service.now())
+}
 func (service *Service) Logout(ctx context.Context, token string) error {
 	if token == "" {
 		return nil

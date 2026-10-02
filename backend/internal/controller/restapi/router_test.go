@@ -15,7 +15,7 @@ import (
 
 func TestHealth(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := NewRouter(&sql.DB{}, authStub{}, config.AuthConfig{}, log)
+	router := NewRouter(&sql.DB{}, authStub{}, nil, nil, config.AuthConfig{}, log)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health", nil))
 
@@ -36,5 +36,7 @@ func (authStub) Login(context.Context, string, string) (entity.Session, error) {
 func (authStub) Authenticate(context.Context, string) (entity.User, error) {
 	return entity.User{}, nil
 }
+
+func (authStub) ChangePassword(context.Context, int64, string, string) error { return nil }
 
 func (authStub) Logout(context.Context, string) error { return nil }

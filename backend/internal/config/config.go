@@ -7,10 +7,11 @@ import (
 )
 
 type Config struct {
-	App  AppConfig  `env-prefix:"APP_"`
-	HTTP HTTPConfig `env-prefix:"HTTP_"`
-	DB   DBConfig   `env-prefix:"DB_"`
-	Auth AuthConfig `env-prefix:"AUTH_"`
+	App   AppConfig   `env-prefix:"APP_"`
+	HTTP  HTTPConfig  `env-prefix:"HTTP_"`
+	DB    DBConfig    `env-prefix:"DB_"`
+	Auth  AuthConfig  `env-prefix:"AUTH_"`
+	Media MediaConfig `env-prefix:"MEDIA_"`
 }
 
 type AppConfig struct {
@@ -38,6 +39,10 @@ type DBConfig struct {
 type AuthConfig struct {
 	SessionTTL   time.Duration `env:"SESSION_TTL" env-default:"24h"`
 	CookieSecure bool          `env:"COOKIE_SECURE" env-default:"true"`
+}
+
+type MediaConfig struct {
+	TeacherPhotosPath string `env:"TEACHER_PHOTOS_PATH" env-default:"./data/teacher-photos"`
 }
 
 func Load() (*Config, error) {

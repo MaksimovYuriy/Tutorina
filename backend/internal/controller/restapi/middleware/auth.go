@@ -47,3 +47,22 @@ func CurrentUser(ctx context.Context) (entity.User, bool) {
 	user, ok := ctx.Value(userContextKey{}).(entity.User)
 	return user, ok
 }
+
+func RequireRole(required entity.Role) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, ok := CurrentUser(r.Context())
+			if !ok {
+				apiresponse.WriteError(w, http.StatusUnauthorized, "unauthorized", "Authentication required", "")
+				return
+			}
+			for _, role := range user.Roles {
+				if role == required {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			apiresponse.WriteError(w, http.StatusForbidden, "forbidden", "Insufficient permissions", "")
+		})
+	}
+}

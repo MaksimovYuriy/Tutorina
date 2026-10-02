@@ -49,12 +49,15 @@ services:
       HTTP_IDLE_TIMEOUT: ${HTTP_IDLE_TIMEOUT:-60s}
       AUTH_SESSION_TTL: ${AUTH_SESSION_TTL:-24h}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      MEDIA_TEACHER_PHOTOS_PATH: /data/teacher-photos
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_USER: ${DB_USER:-tutorina}
       DB_PASSWORD: ${DB_PASSWORD:-tutorina}
       DB_NAME: ${DB_NAME:-tutorina}
       DB_SSL_MODE: ${DB_SSL_MODE:-disable}
+    volumes:
+      - teacher_photos:/data/teacher-photos
     healthcheck:
       test: ["CMD", "/app/tutorina-api", "healthcheck"]
       interval: 10s
@@ -119,5 +122,6 @@ services:
 
 volumes:
   postgres_data:
+  teacher_photos:
   caddy_data:
   caddy_config:

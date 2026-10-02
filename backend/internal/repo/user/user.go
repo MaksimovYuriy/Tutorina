@@ -78,6 +78,52 @@ func (r *Repo) FindByID(ctx context.Context, id int64) (entity.User, error) {
 	return user, nil
 }
 
+func (r *Repo) FindCredentialsByID(ctx context.Context, id int64) (entity.Credentials, error) {
+	const query = `
+		SELECT id, email, password_hash, is_active, created_at, updated_at
+		FROM users
+		WHERE id = $1
+	`
+	var credentials entity.Credentials
+	err := r.database.QueryRowContext(ctx, query, id).Scan(
+		&credentials.ID,
+		&credentials.Email,
+		&credentials.PasswordHash,
+		&credentials.IsActive,
+		&credentials.CreatedAt,
+		&credentials.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return entity.Credentials{}, repo.ErrNotFound
+	}
+	if err != nil {
+		return entity.Credentials{}, fmt.Errorf("find user credentials by id: %w", err)
+	}
+	roles, err := r.roles(ctx, r.database, credentials.ID)
+	if err != nil {
+		return entity.Credentials{}, err
+	}
+	credentials.Roles = roles
+	return credentials, nil
+}
+
+func (r *Repo) UpdatePassword(ctx context.Context, userID int64, passwordHash string) error {
+	result, err := r.database.ExecContext(ctx, `
+		UPDATE users SET password_hash=$2, updated_at=CURRENT_TIMESTAMP
+		WHERE id=$1 AND is_active=TRUE
+	`, userID, passwordHash)
+	if err != nil {
+		return fmt.Errorf("update user password: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update user password rows: %w", err)
+	}
+	if affected != 1 {
+		return repo.ErrNotFound
+	}
+	return nil
+}
 func (r *Repo) Create(ctx context.Context, email, passwordHash string, roles []entity.Role) (entity.User, error) {
 	transaction, err := r.database.BeginTx(ctx, nil)
 	if err != nil {

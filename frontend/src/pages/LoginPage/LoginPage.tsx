@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Alert, Box, Button, CircularProgress, InputAdornment, Stack, TextField, Typography } from '@mui/material'
-import { ApiError, login } from '../../services/api'
+import { ApiError, getCurrentUser, login } from '../../services/api'
 import './LoginPage.css'
 
 export function LoginPage() {
@@ -16,7 +16,8 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       await login(email, password)
-      window.location.assign('/admin')
+      const user = await getCurrentUser()
+      window.location.assign(user.roles.includes('admin') ? '/admin' : '/teacher')
     } catch (caughtError: unknown) {
       if (caughtError instanceof ApiError && caughtError.status === 401) {
         setError('Проверьте почту и пароль — они не подошли.')
@@ -73,7 +74,7 @@ export function LoginPage() {
         <Box component="form" className="login-form" onSubmit={handleSubmit} noValidate>
           <Stack spacing={3.5}>
             <div>
-              <p className="mobile-brand">Tutorina</p>
+              <a className="mobile-brand" href="/" aria-label="Tutorina — на главную">Tutorina</a>
               <Typography component="h2" variant="h2" className="login-title">
                 С возвращением
               </Typography>

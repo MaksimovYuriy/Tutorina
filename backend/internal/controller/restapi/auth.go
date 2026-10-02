@@ -20,6 +20,7 @@ const maximumJSONBodySize = 1 << 20
 type AuthService interface {
 	Login(context.Context, string, string) (entity.Session, error)
 	Authenticate(context.Context, string) (entity.User, error)
+	ChangePassword(context.Context, int64, string, string) error
 	Logout(context.Context, string) error
 }
 
@@ -71,6 +72,37 @@ func (controller *authController) login(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type changePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+func (controller *authController) changePassword(w http.ResponseWriter, r *http.Request) {
+	user, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		apiresponse.WriteError(w, http.StatusUnauthorized, "unauthorized", "Authentication required", "")
+		return
+	}
+	var request changePasswordRequest
+	if err := decodeJSON(w, r, &request); err != nil {
+		apiresponse.WriteError(w, http.StatusBadRequest, "invalid_request", "Invalid request", err.Error())
+		return
+	}
+	err := controller.service.ChangePassword(r.Context(), user.ID, request.CurrentPassword, request.NewPassword)
+	switch {
+	case errors.Is(err, usecase.ErrInvalidCredentials):
+		apiresponse.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "Current password is incorrect", "")
+		return
+	case errors.Is(err, usecase.ErrInvalidInput):
+		apiresponse.WriteError(w, http.StatusBadRequest, "invalid_password", "New password must contain at least 12 characters", "")
+		return
+	case err != nil:
+		apiresponse.WriteError(w, http.StatusInternalServerError, "internal_error", "Internal server error", "")
+		return
+	}
+	controller.clearSessionCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
 func (controller *authController) logout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(middleware.SessionCookieName); err == nil {
 		if err := controller.service.Logout(r.Context(), cookie.Value); err != nil {

@@ -229,6 +229,8 @@
       #fffcf8;
   }
   .mobile-brand {
+    width: fit-content;
+    text-decoration: none;
     display: block;
     margin: 0 0 52px;
     color: #5e496f;

@@ -13,9 +13,12 @@ import (
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi"
 	"github.com/maksimovyuriy/tutorina/backend/internal/lib/logger"
 	sessionrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/session"
+	teacherprofilerepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/teacherprofile"
 	userrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/user"
+	"github.com/maksimovyuriy/tutorina/backend/internal/storage/localphotos"
 	"github.com/maksimovyuriy/tutorina/backend/internal/storage/postgres"
 	authusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/auth"
+	teacherprofileusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/teacherprofile"
 )
 
 func Run() error {
@@ -38,7 +41,12 @@ func Run() error {
 	users := userrepo.New(database)
 	sessions := sessionrepo.New(database)
 	auth := authusecase.New(users, sessions, cfg.Auth.SessionTTL)
-	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, cfg.Auth, log), log)
+	photos, err := localphotos.New(cfg.Media.TeacherPhotosPath)
+	if err != nil {
+		return err
+	}
+	teacherProfiles := teacherprofileusecase.New(teacherprofilerepo.New(database), photos, log)
+	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, teacherProfiles, photos, cfg.Auth, log), log)
 	serverErrors := make(chan error, 1)
 	go func() {
 		log.Info("API started", slog.String("address", server.Addr))

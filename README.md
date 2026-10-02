@@ -19,7 +19,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-После запуска приложение доступно на <http://localhost:18080>. Стартовый экран проверяет всю цепочку `frontend → Caddy → backend → PostgreSQL` запросом к `/api/v1/ping`.
+После запуска приложение доступно на <http://localhost:18080>. На стартовой странице отображаются опубликованные преподаватели; служебная проверка API доступна по `/api/v1/ping`.
 
 Создать первую локальную учётную запись с ролями преподавателя и администратора:
 
@@ -36,9 +36,26 @@ docker compose --profile tools run --rm create-user
 
 - `POST /api/v1/auth/sessions` — вход по `email` и `password`;
 - `GET /api/v1/auth/me` — текущий пользователь и его роли;
+- `PUT /api/v1/auth/password` — смена собственного пароля с завершением всех сессий;
 - `DELETE /api/v1/auth/session` — завершение сессии.
 
 Сессия передаётся в `HttpOnly`, `SameSite=Strict` cookie. Для локального HTTP `AUTH_COOKIE_SECURE=false`; при будущем размещении за HTTPS параметр необходимо включить.
+
+Маршруты преподавателей:
+
+- `GET /api/v1/teachers` — публичный список опубликованных профилей;
+- `GET|PUT /api/v1/teacher/profile` — просмотр и редактирование собственного профиля;
+- `PUT|DELETE /api/v1/teacher/profile/photo` — управление собственной фотографией;
+- `GET|POST /api/v1/admin/teachers/` — список и создание профилей для администратора;
+- `PUT|DELETE /api/v1/admin/teachers/{id}/photo` — загрузка/замена и удаление фотографии;
+- `PUT /api/v1/admin/teachers/{id}` — редактирование профиля;
+- `POST /api/v1/admin/teachers/{id}/account` — создание учётной записи;
+- `PUT /api/v1/admin/teachers/{id}/password` — сброс временного пароля с завершением сессий;
+- `DELETE /api/v1/admin/teachers/{id}` — архивация профиля и отключение доступа.
+
+Фотографии принимаются в JPEG, PNG или WebP размером до 5 МБ. В Docker они хранятся
+в именованном томе `teacher_photos` и не теряются при пересборке контейнера. При
+замене и архивации старый файл удаляется.
 
 Остановить сервисы:
 
@@ -46,7 +63,7 @@ docker compose --profile tools run --rm create-user
 docker compose down
 ```
 
-Данные PostgreSQL сохраняются в именованном Docker volume. Для удаления данных явно выполните `docker compose down --volumes`.
+Данные PostgreSQL и фотографии сохраняются в именованных Docker volumes. Команда `docker compose down --volumes` явно удалит оба хранилища.
 
 ## Разработка без Docker
 

@@ -49,6 +49,14 @@ func (r *Repo) FindActiveUserID(ctx context.Context, tokenHash []byte, now time.
 	return userID, nil
 }
 
+func (r *Repo) RevokeAll(ctx context.Context, userID int64, now time.Time) error {
+	const query = `UPDATE sessions SET revoked_at=$2 WHERE user_id=$1 AND revoked_at IS NULL`
+	if _, err := r.database.ExecContext(ctx, query, userID, now); err != nil {
+		return fmt.Errorf("revoke user sessions: %w", err)
+	}
+	return nil
+}
+
 func (r *Repo) Revoke(ctx context.Context, tokenHash []byte, now time.Time) error {
 	const query = `
 		UPDATE sessions

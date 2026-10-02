@@ -64,17 +64,50 @@ func TestLoginDoesNotRevealCredentialFailure(t *testing.T) {
 	}
 }
 
+func TestChangePasswordUpdatesHashAndRevokesSessions(t *testing.T) {
+	oldHash, err := bcrypt.GenerateFromPassword([]byte("old-password-123"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	users := &userRepositoryStub{credentials: entity.Credentials{User: entity.User{ID: 17, IsActive: true}, PasswordHash: string(oldHash)}}
+	sessions := &sessionRepositoryStub{}
+	service := New(users, sessions, time.Hour)
+	fixedNow := time.Date(2026, time.October, 2, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return fixedNow }
+
+	if err := service.ChangePassword(context.Background(), 17, "old-password-123", "new-password-123"); err != nil {
+		t.Fatal(err)
+	}
+	if users.updatedUserID != 17 || bcrypt.CompareHashAndPassword([]byte(users.updatedPasswordHash), []byte("new-password-123")) != nil {
+		t.Fatal("new password hash was not stored")
+	}
+	if sessions.revokedUserID != 17 || !sessions.revokedAt.Equal(fixedNow) {
+		t.Fatal("user sessions were not revoked")
+	}
+}
+
 type userRepositoryStub struct {
-	credentials      entity.Credentials
-	credentialsError error
-	user             entity.User
-	userError        error
-	requestedEmail   string
+	credentials         entity.Credentials
+	credentialsError    error
+	user                entity.User
+	userError           error
+	requestedEmail      string
+	updatedUserID       int64
+	updatedPasswordHash string
 }
 
 func (stub *userRepositoryStub) FindCredentialsByEmail(_ context.Context, email string) (entity.Credentials, error) {
 	stub.requestedEmail = email
 	return stub.credentials, stub.credentialsError
+}
+
+func (stub *userRepositoryStub) FindCredentialsByID(context.Context, int64) (entity.Credentials, error) {
+	return stub.credentials, stub.credentialsError
+}
+func (stub *userRepositoryStub) UpdatePassword(_ context.Context, userID int64, passwordHash string) error {
+	stub.updatedUserID = userID
+	stub.updatedPasswordHash = passwordHash
+	return nil
 }
 
 func (stub *userRepositoryStub) FindByID(context.Context, int64) (entity.User, error) {
@@ -85,6 +118,8 @@ type sessionRepositoryStub struct {
 	createdUserID    int64
 	createdTokenHash []byte
 	createdExpiresAt time.Time
+	revokedUserID    int64
+	revokedAt        time.Time
 }
 
 func (stub *sessionRepositoryStub) Create(_ context.Context, userID int64, tokenHash []byte, expiresAt time.Time) error {
@@ -96,6 +131,12 @@ func (stub *sessionRepositoryStub) Create(_ context.Context, userID int64, token
 
 func (stub *sessionRepositoryStub) FindActiveUserID(context.Context, []byte, time.Time) (int64, error) {
 	return 0, repo.ErrNotFound
+}
+
+func (stub *sessionRepositoryStub) RevokeAll(_ context.Context, userID int64, now time.Time) error {
+	stub.revokedUserID = userID
+	stub.revokedAt = now
+	return nil
 }
 
 func (stub *sessionRepositoryStub) Revoke(context.Context, []byte, time.Time) error { return nil }
