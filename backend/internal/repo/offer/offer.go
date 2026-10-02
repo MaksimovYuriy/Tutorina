@@ -255,3 +255,41 @@ func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
+
+func (r *Repo) ListMine(ctx context.Context, userID int64) ([]entity.Offer, error) {
+	const query = `SELECT offers.id, offers.title, offers.description, offers.goal, offers.default_duration_minutes,
+		offers.format, offers.price_rubles, offers.is_published, offers.created_at, offers.updated_at,
+		teacher_offers.id, teacher_offers.offer_id, teacher_offers.teacher_profile_id,
+		teacher_profiles.display_name, teacher_offers.duration_minutes, teacher_offers.price_rubles,
+		teacher_offers.is_published, teacher_offers.created_at, teacher_offers.updated_at
+		FROM teacher_offers
+		JOIN offers ON offers.id=teacher_offers.offer_id AND offers.archived_at IS NULL
+		JOIN teacher_profiles ON teacher_profiles.id=teacher_offers.teacher_profile_id AND teacher_profiles.archived_at IS NULL
+		WHERE teacher_offers.archived_at IS NULL AND teacher_profiles.user_id=$1
+		ORDER BY offers.title, offers.id`
+	rows, err := r.database.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list teacher's offers: %w", err)
+	}
+	defer rows.Close()
+	items := make([]entity.Offer, 0)
+	for rows.Next() {
+		var item entity.Offer
+		var assignment entity.TeacherOffer
+		if err := rows.Scan(
+			&item.ID, &item.Title, &item.Description, &item.Goal, &item.DefaultDurationMinutes,
+			&item.Format, &item.PriceRubles, &item.IsPublished, &item.CreatedAt, &item.UpdatedAt,
+			&assignment.ID, &assignment.OfferID, &assignment.TeacherProfileID,
+			&assignment.TeacherDisplayName, &assignment.DurationMinutes, &assignment.PriceRubles,
+			&assignment.IsPublished, &assignment.CreatedAt, &assignment.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan teacher's offer: %w", err)
+		}
+		item.Teachers = []entity.TeacherOffer{assignment}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate teacher's offers: %w", err)
+	}
+	return items, nil
+}

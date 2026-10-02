@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Avatar, Box, Button, Chip, CircularProgress, Container, Stack, Typography } from '@mui/material'
 import { BrandLink } from '../../components/BrandLink'
-import { getCurrentUser, getPublicOffers, getPublicTeacherProfiles, type CurrentUser, type Offer, type TeacherProfile } from '../../services/api'
+import { getCurrentUser, getPublicLessons, getPublicOffers, getPublicTeacherProfiles, type CurrentUser, type Lesson, type Offer, type TeacherProfile } from '../../services/api'
 
 const formatLabels = {
   online: 'Онлайн',
@@ -12,6 +12,7 @@ const formatLabels = {
 export function TeachersPage() {
   const [teachers, setTeachers] = useState<TeacherProfile[]>([])
   const [offers, setOffers] = useState<Offer[]>([])
+  const [lessons, setLessons] = useState<Lesson[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -24,9 +25,10 @@ export function TeachersPage() {
         if (error instanceof DOMException && error.name === 'AbortError') return
         setCurrentUser(null)
       })
-    Promise.all([getPublicOffers(controller.signal), getPublicTeacherProfiles(controller.signal)])
-      .then(([offerItems, teacherItems]) => {
+    Promise.all([getPublicOffers(controller.signal), getPublicLessons(controller.signal), getPublicTeacherProfiles(controller.signal)])
+      .then(([offerItems, lessonItems, teacherItems]) => {
         setOffers(offerItems)
+        setLessons(lessonItems)
         setTeachers(teacherItems)
       })
       .catch((error: unknown) => {
@@ -113,6 +115,29 @@ export function TeachersPage() {
             </Stack>
           )}
 
+          {!loading && !failed && lessons.length > 0 && (
+            <Stack component="section" spacing={3}>
+              <div>
+                <Typography component="h2" variant="h3">Ближайшие групповые занятия</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>Занятия с открытой записью. Время указано по Москве.</Typography>
+              </div>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }, gap: 3 }}>
+                {lessons.slice(0, 6).map((lesson) => (
+                  <Box key={lesson.id} component="article" sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
+                    <Typography color="primary" sx={{ fontWeight: 650 }}>{formatLessonTime(lesson.startsAt, lesson.endsAt)}</Typography>
+                    <Typography component="h3" variant="h5" sx={{ mt: 1 }}>{lesson.offerTitle}</Typography>
+                    <Typography color="text.secondary">{lesson.teacherDisplayName}</Typography>
+                    <Typography sx={{ mt: 2 }}>{lesson.groupLevel} · {lesson.groupGoal}</Typography>
+                    <Typography color="text.secondary" sx={{ mt: 1 }}>
+                      {lesson.deliveryFormat === 'online' ? 'Онлайн' : 'Очно'} · мест: {lesson.capacity}
+                      {lesson.priceRubles !== null ? ` · ${lesson.priceRubles.toLocaleString('ru-RU')} ₽` : ''}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Stack>
+          )}
+
           {!loading && !failed && (
             <Stack component="section" spacing={3}>
               <Typography component="h2" variant="h3">Наши преподаватели</Typography>
@@ -142,4 +167,14 @@ export function TeachersPage() {
       </Container>
     </Box>
   )
+}
+
+function formatLessonTime(startsAt: string, endsAt: string): string {
+  const start = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(startsAt))
+  const end = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(endsAt))
+  return `${start}–${end}`
 }

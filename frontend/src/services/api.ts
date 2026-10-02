@@ -197,13 +197,11 @@ export async function archiveTeacherProfile(profileId: string): Promise<void> {
 }
 
 export async function getOffers(signal?: AbortSignal): Promise<Offer[]> {
-  const document = await request<{ data: Array<{ id: string; attributes: Omit<Offer, 'id'> }> }>('/api/v1/admin/offers/', { signal })
-  return document.data.map(({ id, attributes }) => ({ id, ...attributes }))
+  return getOfferList('/api/v1/admin/offers/', signal)
 }
 
 export async function getPublicOffers(signal?: AbortSignal): Promise<Offer[]> {
-  const document = await request<{ data: Array<{ id: string; attributes: Omit<Offer, 'id'> }> }>('/api/v1/offers', { signal })
-  return document.data.map(({ id, attributes }) => ({ id, ...attributes }))
+  return getOfferList('/api/v1/offers', signal)
 }
 
 export async function createOffer(offer: OfferInput): Promise<Offer> {
@@ -251,12 +249,12 @@ async function sendTeacherProfile(url: string, method: 'POST' | 'PUT', profile: 
 }
 
 async function sendOffer(url: string, method: 'POST' | 'PUT', offer: OfferInput): Promise<Offer> {
-  const document = await request<{ data: { id: string; attributes: Omit<Offer, 'id'> } }>(url, {
+  const document = await request<{ data: OfferResource }>(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(offer),
   })
-  return { id: document.data.id, ...document.data.attributes }
+  return mapOfferResource(document.data)
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -274,4 +272,117 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
+}
+
+export type LessonDeliveryFormat = 'online' | 'offline'
+export type LessonType = 'individual' | 'group'
+export type LessonStatus = 'planned' | 'completed' | 'cancelled'
+
+export interface Lesson {
+  id: string
+  teacherOfferId: string
+  teacherProfileId: string
+  teacherDisplayName: string
+  offerTitle: string
+  priceRubles: number | null
+  startsAt: string
+  endsAt: string
+  deliveryFormat: LessonDeliveryFormat
+  lessonType: LessonType
+  capacity: number
+  status: LessonStatus
+  enrollmentOpen: boolean
+  groupGoal: string
+  groupLevel: string
+}
+
+export interface LessonInput {
+  teacherOfferId: number
+  startsAt: string
+  endsAt: string
+  deliveryFormat: LessonDeliveryFormat
+  lessonType: LessonType
+  capacity: number
+  status: LessonStatus
+  enrollmentOpen: boolean
+  groupGoal: string
+  groupLevel: string
+}
+
+export async function getMyOffers(signal?: AbortSignal): Promise<Offer[]> {
+  return getOfferList('/api/v1/teacher/offers', signal)
+}
+
+export async function getAdminLessons(signal?: AbortSignal): Promise<Lesson[]> {
+  return getLessonList('/api/v1/admin/lessons/', signal)
+}
+
+export async function getMyLessons(signal?: AbortSignal): Promise<Lesson[]> {
+  return getLessonList('/api/v1/teacher/lessons', signal)
+}
+
+export async function getPublicLessons(signal?: AbortSignal): Promise<Lesson[]> {
+  return getLessonList('/api/v1/lessons', signal)
+}
+
+export async function createAdminLesson(input: LessonInput): Promise<Lesson> {
+  return sendLesson('/api/v1/admin/lessons/', 'POST', input)
+}
+
+export async function createMyLesson(input: LessonInput): Promise<Lesson> {
+  return sendLesson('/api/v1/teacher/lessons', 'POST', input)
+}
+
+export async function updateAdminLesson(id: string, input: LessonInput): Promise<Lesson> {
+  return sendLesson(`/api/v1/admin/lessons/${id}`, 'PUT', input)
+}
+
+export async function updateMyLesson(id: string, input: LessonInput): Promise<Lesson> {
+  return sendLesson(`/api/v1/teacher/lessons/${id}`, 'PUT', input)
+}
+
+export async function archiveAdminLesson(id: string): Promise<void> {
+  await request<void>(`/api/v1/admin/lessons/${id}`, { method: 'DELETE' })
+}
+
+export async function archiveMyLesson(id: string): Promise<void> {
+  await request<void>(`/api/v1/teacher/lessons/${id}`, { method: 'DELETE' })
+}
+
+async function getOfferList(url: string, signal?: AbortSignal): Promise<Offer[]> {
+  const document = await request<{ data: OfferResource[] }>(url, { signal })
+  return document.data.map(mapOfferResource)
+}
+
+async function getLessonList(url: string, signal?: AbortSignal): Promise<Lesson[]> {
+  const document = await request<{ data: Array<{ id: string; attributes: Omit<Lesson, 'id'> }> }>(url, { signal })
+  return document.data.map(({ id, attributes }) => ({ id, ...attributes }))
+}
+
+async function sendLesson(url: string, method: 'POST' | 'PUT', input: LessonInput): Promise<Lesson> {
+  const document = await request<{ data: { id: string; attributes: Omit<Lesson, 'id'> } }>(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  return { id: document.data.id, ...document.data.attributes }
+}
+
+type TeacherOfferResource = {
+  id: string
+  attributes: Omit<TeacherOffer, 'id'>
+}
+
+type OfferResource = {
+  id: string
+  attributes: Omit<Offer, 'id' | 'teachers'> & { teachers: TeacherOfferResource[] }
+}
+
+function mapOfferResource(resource: OfferResource): Offer {
+  const { teachers, ...attributes } = resource.attributes
+  return {
+    id: resource.id,
+    ...attributes,
+    teachers: teachers.map(({ id, attributes: teacherAttributes }) => ({ id, ...teacherAttributes })),
+  }
 }

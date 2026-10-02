@@ -187,6 +187,7 @@ export function AdminOffersPage() {
             </div>
             <Stack direction="row" spacing={1}>
               <Button href="/admin" variant="outlined">Преподаватели</Button>
+              <Button href="/admin/schedule" variant="outlined">Расписание</Button>
               <Button variant="outlined" onClick={handleLogout}>Выйти</Button>
             </Stack>
           </Stack>

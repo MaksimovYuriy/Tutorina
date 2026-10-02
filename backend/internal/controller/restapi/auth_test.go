@@ -59,7 +59,7 @@ func TestMeReturnsRoles(t *testing.T) {
 
 func testRouter(service AuthService, cookieSecure bool) http.Handler {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return NewRouter(nil, service, nil, nil, nil, config.AuthConfig{CookieSecure: cookieSecure}, log)
+	return NewRouter(nil, service, nil, nil, nil, nil, config.AuthConfig{CookieSecure: cookieSecure}, log)
 }
 
 type httpAuthStub struct {

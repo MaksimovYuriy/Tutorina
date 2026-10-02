@@ -100,7 +100,10 @@ export function TeacherHome() {
               <Typography component="h1" variant="h3">Кабинет преподавателя</Typography>
               <Typography color="text.secondary">{user.email}</Typography>
             </div>
-            <Button variant="outlined" onClick={handleLogout}>Выйти</Button>
+            <Stack direction="row" spacing={1}>
+              <Button href="/teacher/schedule" variant="outlined">Расписание</Button>
+              <Button variant="outlined" onClick={handleLogout}>Выйти</Button>
+            </Stack>
           </Stack>
 
           {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
@@ -141,7 +144,8 @@ export function TeacherHome() {
               </Box>
               <Box sx={{ p: 3, bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: 3 }}>
                 <Typography variant="h5">Расписание</Typography>
-                <Typography sx={{ mt: 1, opacity: 0.85 }}>Следующим этапом здесь появятся календарь и управление занятиями.</Typography>
+                <Typography sx={{ mt: 1, opacity: 0.85 }}>Создавайте занятия и управляйте открытой записью.</Typography>
+                <Button href="/teacher/schedule" variant="contained" sx={{ mt: 2, bgcolor: 'background.paper', color: 'primary.dark' }}>Открыть расписание</Button>
               </Box>
             </Stack>
           </Box>

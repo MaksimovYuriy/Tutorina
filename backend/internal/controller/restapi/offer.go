@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/apiresponse"
+	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/middleware"
 	"github.com/maksimovyuriy/tutorina/backend/internal/entity"
 	"github.com/maksimovyuriy/tutorina/backend/internal/repo"
 	"github.com/maksimovyuriy/tutorina/backend/internal/usecase"
@@ -17,6 +18,7 @@ import (
 type OfferService interface {
 	ListPublic(context.Context) ([]entity.Offer, error)
 	ListAll(context.Context) ([]entity.Offer, error)
+	ListMine(context.Context, int64) ([]entity.Offer, error)
 	Create(context.Context, entity.Offer) (entity.Offer, error)
 	Update(context.Context, entity.Offer) (entity.Offer, error)
 	Archive(context.Context, int64) error
@@ -257,4 +259,18 @@ func writeOfferError(w http.ResponseWriter, err error) {
 		slog.Error("Offer request failed", slog.Any("error", err))
 		apiresponse.WriteError(w, http.StatusInternalServerError, "internal_error", "Internal server error", "")
 	}
+}
+
+func (c offerController) listMine(w http.ResponseWriter, r *http.Request) {
+	user, ok := middleware.CurrentUser(r.Context())
+	if !ok {
+		apiresponse.WriteError(w, http.StatusUnauthorized, "unauthorized", "Authentication required", "")
+		return
+	}
+	items, err := c.service.ListMine(r.Context(), user.ID)
+	if err != nil {
+		writeOfferError(w, err)
+		return
+	}
+	writeOfferList(w, items)
 }

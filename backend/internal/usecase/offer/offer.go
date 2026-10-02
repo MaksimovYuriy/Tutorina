@@ -13,6 +13,7 @@ import (
 
 type Repository interface {
 	List(context.Context, bool) ([]entity.Offer, error)
+	ListMine(context.Context, int64) ([]entity.Offer, error)
 	Get(context.Context, int64) (entity.Offer, error)
 	Create(context.Context, entity.Offer) (entity.Offer, error)
 	Update(context.Context, entity.Offer) (entity.Offer, error)
@@ -32,6 +33,13 @@ func (s *Service) ListPublic(ctx context.Context) ([]entity.Offer, error) {
 
 func (s *Service) ListAll(ctx context.Context) ([]entity.Offer, error) {
 	return s.repository.List(ctx, false)
+}
+
+func (s *Service) ListMine(ctx context.Context, userID int64) ([]entity.Offer, error) {
+	if userID <= 0 {
+		return nil, fmt.Errorf("%w: invalid user id", usecase.ErrInvalidInput)
+	}
+	return s.repository.ListMine(ctx, userID)
 }
 
 func (s *Service) Create(ctx context.Context, item entity.Offer) (entity.Offer, error) {

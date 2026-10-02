@@ -1,10 +1,15 @@
 import { AdminHome } from './pages/AdminHome/AdminHome'
 import { AdminOffersPage } from './pages/AdminOffersPage/AdminOffersPage'
 import { LoginPage } from './pages/LoginPage/LoginPage'
+import { SchedulePage } from './pages/SchedulePage/SchedulePage'
 import { TeachersPage } from './pages/TeachersPage/TeachersPage'
 import { TeacherHome } from './pages/TeacherHome/TeacherHome'
 
 export function App() {
+  if (window.location.pathname.startsWith('/admin/schedule') || window.location.pathname.startsWith('/teacher/schedule')) {
+    return <SchedulePage />
+  }
+
   if (window.location.pathname.startsWith('/admin/offers')) {
     return <AdminOffersPage />
   }

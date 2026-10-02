@@ -12,6 +12,7 @@ import (
 	"github.com/maksimovyuriy/tutorina/backend/internal/config"
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi"
 	"github.com/maksimovyuriy/tutorina/backend/internal/lib/logger"
+	lessonrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/lesson"
 	offerrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/offer"
 	sessionrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/session"
 	teacherprofilerepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/teacherprofile"
@@ -19,6 +20,7 @@ import (
 	"github.com/maksimovyuriy/tutorina/backend/internal/storage/localphotos"
 	"github.com/maksimovyuriy/tutorina/backend/internal/storage/postgres"
 	authusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/auth"
+	lessonusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/lesson"
 	offerusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/offer"
 	teacherprofileusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/teacherprofile"
 )
@@ -49,7 +51,8 @@ func Run() error {
 	}
 	teacherProfiles := teacherprofileusecase.New(teacherprofilerepo.New(database), photos, log)
 	offers := offerusecase.New(offerrepo.New(database))
-	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, teacherProfiles, offers, photos, cfg.Auth, log), log)
+	lessons := lessonusecase.New(lessonrepo.New(database))
+	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, teacherProfiles, offers, lessons, photos, cfg.Auth, log), log)
 	serverErrors := make(chan error, 1)
 	go func() {
 		log.Info("API started", slog.String("address", server.Addr))

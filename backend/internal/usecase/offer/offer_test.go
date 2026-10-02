@@ -47,7 +47,8 @@ type repositoryStub struct {
 	assignmentErr error
 }
 
-func (r *repositoryStub) List(context.Context, bool) ([]entity.Offer, error) { return nil, nil }
+func (r *repositoryStub) List(context.Context, bool) ([]entity.Offer, error)      { return nil, nil }
+func (r *repositoryStub) ListMine(context.Context, int64) ([]entity.Offer, error) { return nil, nil }
 func (r *repositoryStub) Get(context.Context, int64) (entity.Offer, error) {
 	return entity.Offer{}, nil
 }
