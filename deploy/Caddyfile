@@ -1,0 +1,22 @@
+{
+ email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+ encode zstd gzip
+ header {
+  Strict-Transport-Security "max-age=31536000"
+  X-Content-Type-Options "nosniff"
+  Referrer-Policy "no-referrer"
+  X-Frame-Options "DENY"
+  Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+  -Server
+ }
+ handle_path /api/* {
+  header Cache-Control "no-store"
+  reverse_proxy backend:8081
+ }
+ handle {
+  reverse_proxy frontend:80
+ }
+}

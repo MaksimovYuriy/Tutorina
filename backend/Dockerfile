@@ -18,5 +18,8 @@ COPY --from=build /out/tutorina-migrate ./tutorina-migrate
 COPY --from=build /out/tutorina-key ./tutorina-key
 COPY --from=build /app/migrations ./migrations
 
+RUN addgroup -S tutorina && adduser -S -G tutorina tutorina
+USER tutorina
+
 EXPOSE 8081
 CMD ["./tutorina-api"]

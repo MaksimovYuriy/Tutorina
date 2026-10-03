@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+if [[ ! -f .env.production ]]; then
+  echo 'Create .env.production from .env.production.example first.' >&2
+  exit 1
+fi
+exec docker compose --project-name tutorina-prod --env-file .env.production -f compose.yml -f compose.prod.yml "$@"

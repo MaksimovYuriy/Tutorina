@@ -136,4 +136,4 @@ cd frontend && npm run lint && npm run build
 docker compose config --quiet
 ```
 
-План реализации: [PLAN.md](PLAN.md). Подготовка к размещению: [SECURITY.md](SECURITY.md).
+План реализации: [PLAN.md](PLAN.md). Размещение на VPS: [DEPLOY.md](DEPLOY.md). Модель защиты: [SECURITY.md](SECURITY.md).

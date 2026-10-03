@@ -6,3 +6,8 @@ frontend/dist/
 backend/bin/
 
 secrets/
+
+.env.*
+!.env.example
+!.env.production.example
+backups/

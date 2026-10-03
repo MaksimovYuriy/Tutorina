@@ -1,0 +1,32 @@
+# Docker Compose >= 2.24.4. Use together with compose.yml.
+services:
+  caddy:
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env.production}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+  backend:
+    environment:
+      APP_ENV: prod
+      DB_PASSWORD: ${DB_PASSWORD:?Set a strong DB_PASSWORD in .env.production}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    stop_grace_period: 15s
+  migrate:
+    environment:
+      APP_ENV: prod
+      DB_PASSWORD: ${DB_PASSWORD:?Set a strong DB_PASSWORD in .env.production}
+  create-key:
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?Set a strong DB_PASSWORD in .env.production}
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set a strong DB_PASSWORD in .env.production}

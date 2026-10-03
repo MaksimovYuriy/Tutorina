@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+backup_dir="${1:-$repo_root/backups}"
+mkdir -p "$backup_dir"
+backup_dir="$(cd -- "$backup_dir" && pwd)"
+backup_file="$backup_dir/tutorina-$(date -u +%Y%m%dT%H%M%SZ)-$$.dump"
+partial_file="$backup_file.partial"
+trap 'rm -f -- "$partial_file"' EXIT
+"$repo_root/scripts/prod" exec -T postgres sh -c 'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$partial_file"
+mv -- "$partial_file" "$backup_file"
+echo "$backup_file"
