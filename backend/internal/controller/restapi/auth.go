@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/apiresponse"
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/middleware"
@@ -23,16 +22,15 @@ type AuthService interface {
 }
 
 type authController struct {
-	service      AuthService
-	cookieSecure bool
+	service AuthService
 }
 
 type loginRequest struct {
 	Key string `json:"key"`
 }
 
-func newAuthController(service AuthService, cookieSecure bool) *authController {
-	return &authController{service: service, cookieSecure: cookieSecure}
+func newAuthController(service AuthService) *authController {
+	return &authController{service: service}
 }
 
 func (controller *authController) login(w http.ResponseWriter, r *http.Request) {
@@ -50,43 +48,19 @@ func (controller *authController) login(w http.ResponseWriter, r *http.Request) 
 		apiresponse.WriteError(w, http.StatusInternalServerError, "internal_error", "Internal server error", "")
 		return
 	}
-	controller.setSessionCookie(w, session.Token, session.ExpiresAt)
-	w.WriteHeader(http.StatusNoContent)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(map[string]any{"token": session.Token, "expiresAt": session.ExpiresAt})
 }
 
 func (controller *authController) logout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(middleware.SessionCookieName); err == nil {
-		if err := controller.service.Logout(r.Context(), cookie.Value); err != nil {
+	if token := middleware.SessionToken(r); token != "" {
+		if err := controller.service.Logout(r.Context(), token); err != nil {
 			apiresponse.WriteError(w, http.StatusInternalServerError, "internal_error", "Internal server error", "")
 			return
 		}
 	}
-	controller.clearSessionCookie(w)
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (controller *authController) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     middleware.SessionCookieName,
-		Value:    token,
-		Path:     "/",
-		Expires:  expiresAt,
-		HttpOnly: true,
-		Secure:   controller.cookieSecure,
-		SameSite: http.SameSiteStrictMode,
-	})
-}
-
-func (controller *authController) clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     middleware.SessionCookieName,
-		Path:     "/",
-		Expires:  time.Unix(0, 0),
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   controller.cookieSecure,
-		SameSite: http.SameSiteStrictMode,
-	})
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, target any) error {

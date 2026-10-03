@@ -30,9 +30,11 @@ docker compose exec -T backend ./tutorina-key
 сессии. Если ключ потерян, создайте новый этой же командой. Генерация также
 доступна через `docker compose --profile tools run --rm create-key`.
 
-После входа браузер получает отдельную сессию в `HttpOnly`, `SameSite=Strict`
-cookie. Ключ не сохраняется в localStorage или URL. Для локального HTTP
-используется `AUTH_COOKIE_SECURE=false`; при размещении за HTTPS включите его.
+После входа временный токен хранится в sessionStorage текущей вкладки.
+Обновление страницы сохраняет вход; после закрытия вкладки нужно снова ввести ключ.
+Сам ключ не сохраняется. Сервер ограничивает срок сессии через AUTH_SESSION_TTL.
+Браузер может восстановить sessionStorage при восстановлении закрытых вкладок.
+При размещении приложения используйте HTTPS.
 
 ## Расписание
 
@@ -109,7 +111,7 @@ PostgreSQL хранится в именованном томе. `docker compose 
 Backend: Go, chi, PostgreSQL, Goose. Frontend: React, TypeScript, Vite, Material UI.
 
 Для разработки без Docker настройте пустую локальную БД и переменные из `.env.example`
-(включая `DB_HOST=localhost`, `AUTH_COOKIE_SECURE=false`), затем:
+(включая `DB_HOST=localhost`), затем:
 
 ```bash
 cd backend

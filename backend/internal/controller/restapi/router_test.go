@@ -9,13 +9,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/maksimovyuriy/tutorina/backend/internal/config"
 	"github.com/maksimovyuriy/tutorina/backend/internal/entity"
 )
 
 func TestHealth(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := NewRouter(&sql.DB{}, authStub{}, nil, nil, config.AuthConfig{}, log)
+	router := NewRouter(&sql.DB{}, authStub{}, nil, nil, log)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health", nil))
 

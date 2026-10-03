@@ -5,12 +5,19 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/apiresponse"
 	"github.com/maksimovyuriy/tutorina/backend/internal/usecase"
 )
 
-const SessionCookieName = "tutorina_session"
+func SessionToken(r *http.Request) string {
+	value := r.Header.Get("Authorization")
+	if !strings.HasPrefix(value, "Bearer ") {
+		return ""
+	}
+	return strings.TrimPrefix(value, "Bearer ")
+}
 
 type AuthService interface {
 	Authenticate(context.Context, string) error
@@ -19,12 +26,12 @@ type AuthService interface {
 func RequireAuth(service AuthService, log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie(SessionCookieName)
-			if err != nil {
+			token := SessionToken(r)
+			if token == "" {
 				apiresponse.WriteError(w, 401, "unauthorized", "Authentication required", "")
 				return
 			}
-			err = service.Authenticate(r.Context(), cookie.Value)
+			err := service.Authenticate(r.Context(), token)
 			if errors.Is(err, usecase.ErrUnauthorized) {
 				apiresponse.WriteError(w, 401, "unauthorized", "Authentication required", "")
 				return

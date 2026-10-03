@@ -36,8 +36,7 @@ type DBConfig struct {
 }
 
 type AuthConfig struct {
-	SessionTTL   time.Duration `env:"SESSION_TTL" env-default:"24h"`
-	CookieSecure bool          `env:"COOKIE_SECURE" env-default:"true"`
+	SessionTTL time.Duration `env:"SESSION_TTL" env-default:"24h"`
 }
 
 func Load() (*Config, error) {

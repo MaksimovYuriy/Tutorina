@@ -29,8 +29,20 @@ export class ApiError extends Error {
     this.name = 'ApiError'
   }
 }
+const sessionTokenKey = 'tutorina.session'
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/v1${url}`, init)
+  const headers = new Headers(init?.headers)
+  const token = sessionStorage.getItem(sessionTokenKey)
+  if (token && (url.startsWith('/admin/') || url === '/auth/session')) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+  const response = await fetch(`/api/v1${url}`, {
+    ...init,
+    headers,
+    credentials: 'omit',
+  })
+  if (response.status === 401) sessionStorage.removeItem(sessionTokenKey)
   if (!response.ok) {
     let message = 'Не удалось выполнить запрос. Попробуйте ещё раз.'
     try {
@@ -46,17 +58,22 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     : (response.json() as Promise<T>)
 }
 export async function login(key: string) {
-  await request('/auth/sessions', {
+  const session = await request<{ token: string }>('/auth/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ key }),
   })
+  sessionStorage.setItem(sessionTokenKey, session.token)
 }
 export async function requireSession(signal?: AbortSignal): Promise<void> {
   await request('/auth/session', { signal })
 }
 export async function logout() {
-  await request('/auth/session', { method: 'DELETE' })
+  try {
+    await request('/auth/session', { method: 'DELETE' })
+  } finally {
+    sessionStorage.removeItem(sessionTokenKey)
+  }
 }
 export async function getPublicSlots(signal?: AbortSignal) {
   return (await request<{ data: PublicSlot[] }>('/slots', { signal })).data

@@ -6,17 +6,16 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/maksimovyuriy/tutorina/backend/internal/config"
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/apiresponse"
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/middleware"
 )
 
-func NewRouter(database *sql.DB, authService AuthService, slots SlotService, directions DirectionService, authConfig config.AuthConfig, log *slog.Logger) http.Handler {
+func NewRouter(database *sql.DB, authService AuthService, slots SlotService, directions DirectionService, log *slog.Logger) http.Handler {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestLogger(log))
 	router.Use(middleware.Recover(log))
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
-	auth := newAuthController(authService, authConfig.CookieSecure)
+	auth := newAuthController(authService)
 	controller := slotController{slots}
 	direction := directionController{directions}
 	router.Route("/v1", func(r chi.Router) {
@@ -27,7 +26,7 @@ func NewRouter(database *sql.DB, authService AuthService, slots SlotService, dir
 			}
 			writeJSON(w, 200, map[string]string{"status": "ok", "database": "connected"})
 		})
-		r.Post("/auth/sessions", auth.login)
+		r.With(middleware.LoginLimit()).Post("/auth/sessions", auth.login)
 		r.Delete("/auth/session", auth.logout)
 		r.With(middleware.RequireAuth(authService, log)).Get("/auth/session", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 		r.Get("/slots", controller.listPublic)

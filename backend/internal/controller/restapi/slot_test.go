@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maksimovyuriy/tutorina/backend/internal/config"
 	"github.com/maksimovyuriy/tutorina/backend/internal/entity"
 	"github.com/maksimovyuriy/tutorina/backend/internal/usecase"
 )
@@ -31,7 +30,7 @@ func (s *slotServiceStub) Save(_ context.Context, v entity.Slot) (entity.Slot, e
 }
 func (s *slotServiceStub) Delete(context.Context, int64) error { return nil }
 func slotRouter(auth AuthService, s SlotService) http.Handler {
-	return NewRouter(nil, auth, s, nil, config.AuthConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return NewRouter(nil, auth, s, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 func TestPublicSlotsExposeOnlyAvailability(t *testing.T) {
 	s := &slotServiceStub{}
@@ -58,7 +57,7 @@ func TestPublicSlotsExposeOnlyAvailability(t *testing.T) {
 func TestOnlyKeySessionCanChangeSlots(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
-		cookie    bool
+		token     bool
 		authError error
 		want      int
 	}{
@@ -68,8 +67,8 @@ func TestOnlyKeySessionCanChangeSlots(t *testing.T) {
 			s := &slotServiceStub{}
 			auth := &httpAuthStub{authenticateError: tc.authError}
 			r := httptest.NewRequest("POST", "/v1/admin/slots/", strings.NewReader(`{"directionId":1}`))
-			if tc.cookie {
-				r.AddCookie(&http.Cookie{Name: "tutorina_session", Value: "test"})
+			if tc.token {
+				r.Header.Set("Authorization", "Bearer test")
 			}
 			w := httptest.NewRecorder()
 			slotRouter(auth, s).ServeHTTP(w, r)

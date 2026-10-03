@@ -26,7 +26,14 @@ export function LoginPage() {
       await login(key.trim())
       window.location.assign('/admin')
     } catch (caughtError: unknown) {
-      if (caughtError instanceof ApiError && caughtError.status === 401) {
+      if (caughtError instanceof ApiError && caughtError.status === 429) {
+        setError(
+          'Слишком много попыток входа. Подождите минуту и попробуйте снова.',
+        )
+      } else if (
+        caughtError instanceof ApiError &&
+        caughtError.status === 401
+      ) {
         setError('Ключ доступа не подошёл. Проверьте его и попробуйте снова.')
       } else {
         setError('Не удалось войти. Пожалуйста, попробуйте ещё раз.')

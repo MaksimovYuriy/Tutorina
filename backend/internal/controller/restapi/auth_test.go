@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maksimovyuriy/tutorina/backend/internal/config"
-	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/middleware"
 	"github.com/maksimovyuriy/tutorina/backend/internal/entity"
 	"github.com/maksimovyuriy/tutorina/backend/internal/usecase"
 )
@@ -28,30 +26,29 @@ func (s *httpAuthStub) Login(_ context.Context, key string) (entity.Session, err
 }
 func (s *httpAuthStub) Authenticate(context.Context, string) error { return s.authenticateError }
 func (s *httpAuthStub) Logout(context.Context, string) error       { return nil }
-func testRouter(service AuthService, secure bool) http.Handler {
-	return NewRouter(nil, service, nil, nil, config.AuthConfig{CookieSecure: secure}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+func testRouter(service AuthService) http.Handler {
+	return NewRouter(nil, service, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
-func TestKeyLoginSetsSecureSessionCookie(t *testing.T) {
+func TestKeyLoginReturnsTemporaryToken(t *testing.T) {
 	s := &httpAuthStub{session: entity.Session{Token: "session-token", ExpiresAt: time.Now().Add(time.Hour)}}
 	w := httptest.NewRecorder()
-	testRouter(s, true).ServeHTTP(w, httptest.NewRequest("POST", "/v1/auth/sessions", strings.NewReader(`{"key":"access-key"}`)))
-	if w.Code != 204 || s.receivedKey != "access-key" {
+	testRouter(s).ServeHTTP(w, httptest.NewRequest("POST", "/v1/auth/sessions", strings.NewReader(`{"key":"access-key"}`)))
+	if w.Code != 200 || s.receivedKey != "access-key" {
 		t.Fatalf("status=%d", w.Code)
 	}
-	cookies := w.Result().Cookies()
-	if len(cookies) != 1 || cookies[0].Name != middleware.SessionCookieName || !cookies[0].HttpOnly || !cookies[0].Secure || cookies[0].SameSite != http.SameSiteStrictMode {
-		t.Fatal("insecure session cookie")
+	if len(w.Result().Cookies()) != 0 || w.Header().Get("Cache-Control") != "no-store" || !strings.Contains(w.Body.String(), "session-token") {
+		t.Fatal("invalid session response")
 	}
 	if strings.Contains(w.Body.String(), "access-key") {
 		t.Fatal("key echoed in response")
 	}
 }
 func TestSessionRequiresAuthentication(t *testing.T) {
-	router := testRouter(&httpAuthStub{authenticateError: usecase.ErrUnauthorized}, false)
+	router := testRouter(&httpAuthStub{authenticateError: usecase.ErrUnauthorized})
 	for _, cookie := range []bool{false, true} {
 		r := httptest.NewRequest("GET", "/v1/auth/session", nil)
 		if cookie {
-			r.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: "bad"})
+			r.Header.Set("Authorization", "Bearer bad")
 		}
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, r)
@@ -62,17 +59,50 @@ func TestSessionRequiresAuthentication(t *testing.T) {
 }
 func TestAuthenticatedSessionReturnsNoIdentity(t *testing.T) {
 	r := httptest.NewRequest("GET", "/v1/auth/session", nil)
-	r.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: "session"})
+	r.Header.Set("Authorization", "Bearer session")
 	w := httptest.NewRecorder()
-	testRouter(&httpAuthStub{}, false).ServeHTTP(w, r)
+	testRouter(&httpAuthStub{}).ServeHTTP(w, r)
 	if w.Code != 204 || w.Body.Len() != 0 {
 		t.Fatal(w.Code)
 	}
 }
 func TestOldCredentialsAreRejected(t *testing.T) {
 	w := httptest.NewRecorder()
-	testRouter(&httpAuthStub{}, false).ServeHTTP(w, httptest.NewRequest("POST", "/v1/auth/sessions", strings.NewReader(`{"username":"admin","password":"secret"}`)))
+	testRouter(&httpAuthStub{}).ServeHTTP(w, httptest.NewRequest("POST", "/v1/auth/sessions", strings.NewReader(`{"username":"admin","password":"secret"}`)))
 	if w.Code != 400 {
 		t.Fatal(w.Code)
+	}
+}
+
+func TestLegacyCookieDoesNotAuthorize(t *testing.T) {
+	r := httptest.NewRequest("GET", "/v1/auth/session", nil)
+	r.AddCookie(&http.Cookie{Name: "tutorina_session", Value: "previous-session"})
+	w := httptest.NewRecorder()
+	testRouter(&httpAuthStub{}).ServeHTTP(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatal(w.Code)
+	}
+}
+
+func TestLoginRateLimitIncludesMalformedRequests(t *testing.T) {
+	router := testRouter(&httpAuthStub{})
+	for i := 0; i < 10; i++ {
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest("POST", "/v1/auth/sessions", strings.NewReader(`{`)))
+		if w.Code != 400 {
+			t.Fatal(w.Code)
+		}
+	}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/v1/auth/sessions", strings.NewReader(`{"key":"key"}`))
+	r.Header.Set("X-Forwarded-For", "203.0.113.10")
+	router.ServeHTTP(w, r)
+	if w.Code != 429 || w.Header().Get("Retry-After") == "" {
+		t.Fatal(w.Code)
+	}
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest("GET", "/health", nil))
+	if w.Code != 200 {
+		t.Fatal("login limit affected health")
 	}
 }

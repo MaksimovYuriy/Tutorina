@@ -44,7 +44,7 @@ func Run() error {
 	auth := authusecase.New(keys, sessions, cfg.Auth.SessionTTL)
 	slots := slotusecase.New(slotrepo.New(database))
 	directions := directionusecase.New(directionrepo.New(database))
-	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, slots, directions, cfg.Auth, log), log)
+	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, slots, directions, log), log)
 	serverErrors := make(chan error, 1)
 	go func() {
 		log.Info("API started", slog.String("address", server.Addr))
