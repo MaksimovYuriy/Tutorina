@@ -13,6 +13,7 @@ import (
 
 	"github.com/maksimovyuriy/tutorina/backend/internal/config"
 	"github.com/maksimovyuriy/tutorina/backend/internal/entity"
+	"github.com/maksimovyuriy/tutorina/backend/internal/usecase"
 )
 
 type slotServiceStub struct {
@@ -22,7 +23,7 @@ type slotServiceStub struct {
 
 func (s *slotServiceStub) List(_ context.Context, public bool) ([]entity.Slot, error) {
 	s.public = public
-	return []entity.Slot{{ID: 1, Title: "Математика", StartsAt: time.Now().Add(time.Hour), EndsAt: time.Now().Add(2 * time.Hour), Capacity: 4, Occupied: 1, Published: true, Status: "planned"}}, nil
+	return []entity.Slot{{ID: 1, Title: "Математика", Level: "A2", StartsAt: time.Now().Add(time.Hour), EndsAt: time.Now().Add(2 * time.Hour), Capacity: 4, Occupied: 1, Published: true, Status: "planned"}}, nil
 }
 func (s *slotServiceStub) Save(_ context.Context, v entity.Slot) (entity.Slot, error) {
 	s.saved = true
@@ -30,7 +31,7 @@ func (s *slotServiceStub) Save(_ context.Context, v entity.Slot) (entity.Slot, e
 }
 func (s *slotServiceStub) Delete(context.Context, int64) error { return nil }
 func slotRouter(auth AuthService, s SlotService) http.Handler {
-	return NewRouter(nil, auth, s, config.AuthConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return NewRouter(nil, auth, s, nil, config.AuthConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 func TestPublicSlotsExposeOnlyAvailability(t *testing.T) {
 	s := &slotServiceStub{}
@@ -45,7 +46,7 @@ func TestPublicSlotsExposeOnlyAvailability(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Data) != 1 || body.Data[0]["freePlaces"] != float64(3) {
+	if len(body.Data) != 1 || body.Data[0]["freePlaces"] != float64(3) || body.Data[0]["level"] != "A2" {
 		t.Fatal(w.Body.String())
 	}
 	for _, key := range []string{"occupied", "published", "status", "capacity"} {
@@ -54,19 +55,19 @@ func TestPublicSlotsExposeOnlyAvailability(t *testing.T) {
 		}
 	}
 }
-func TestOnlyAdministratorCanChangeSlots(t *testing.T) {
+func TestOnlyKeySessionCanChangeSlots(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		cookie bool
-		roles  []entity.Role
-		want   int
+		name      string
+		cookie    bool
+		authError error
+		want      int
 	}{
-		{"visitor", false, nil, 401}, {"without role", true, nil, 403}, {"admin", true, []entity.Role{entity.RoleAdmin}, 201},
+		{"visitor", false, nil, 401}, {"invalid session", true, usecase.ErrUnauthorized, 401}, {"key session", true, nil, 201},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := &slotServiceStub{}
-			auth := &httpAuthStub{user: entity.User{ID: 1, Roles: tc.roles}}
-			r := httptest.NewRequest("POST", "/v1/admin/slots/", strings.NewReader(`{"title":"Математика"}`))
+			auth := &httpAuthStub{authenticateError: tc.authError}
+			r := httptest.NewRequest("POST", "/v1/admin/slots/", strings.NewReader(`{"directionId":1}`))
 			if tc.cookie {
 				r.AddCookie(&http.Cookie{Name: "tutorina_session", Value: "test"})
 			}
@@ -80,7 +81,7 @@ func TestOnlyAdministratorCanChangeSlots(t *testing.T) {
 }
 func TestRemovedSchoolRoutesReturnNotFound(t *testing.T) {
 	router := slotRouter(&httpAuthStub{}, &slotServiceStub{})
-	for _, path := range []string{"/v1/teachers", "/v1/offers", "/v1/lessons", "/v1/teacher/profile", "/v1/admin/applications/"} {
+	for _, path := range []string{"/v1/teachers", "/v1/offers", "/v1/lessons", "/v1/teacher/profile", "/v1/admin/applications/", "/v1/auth/me"} {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		if w.Code != 404 {

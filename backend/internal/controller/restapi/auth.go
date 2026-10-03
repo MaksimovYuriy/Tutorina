@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi/apiresponse"
@@ -18,9 +17,8 @@ import (
 const maximumJSONBodySize = 1 << 20
 
 type AuthService interface {
-	Login(context.Context, string, string) (entity.Session, error)
-	Authenticate(context.Context, string) (entity.User, error)
-	ChangePassword(context.Context, int64, string, string) error
+	Login(context.Context, string) (entity.Session, error)
+	Authenticate(context.Context, string) error
 	Logout(context.Context, string) error
 }
 
@@ -30,23 +28,7 @@ type authController struct {
 }
 
 type loginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type userDocument struct {
-	Data userResource `json:"data"`
-}
-
-type userResource struct {
-	Type       string         `json:"type"`
-	ID         string         `json:"id"`
-	Attributes userAttributes `json:"attributes"`
-}
-
-type userAttributes struct {
-	Username string        `json:"username"`
-	Roles    []entity.Role `json:"roles"`
+	Key string `json:"key"`
 }
 
 func newAuthController(service AuthService, cookieSecure bool) *authController {
@@ -56,12 +38,12 @@ func newAuthController(service AuthService, cookieSecure bool) *authController {
 func (controller *authController) login(w http.ResponseWriter, r *http.Request) {
 	var request loginRequest
 	if err := decodeJSON(w, r, &request); err != nil {
-		apiresponse.WriteError(w, http.StatusBadRequest, "invalid_request", "Invalid request", err.Error())
+		apiresponse.WriteError(w, http.StatusBadRequest, "invalid_request", "Invalid request", "")
 		return
 	}
-	session, err := controller.service.Login(r.Context(), request.Username, request.Password)
+	session, err := controller.service.Login(r.Context(), request.Key)
 	if errors.Is(err, usecase.ErrInvalidCredentials) {
-		apiresponse.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "Invalid username or password", "")
+		apiresponse.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "Неверный ключ доступа", "")
 		return
 	}
 	if err != nil {
@@ -72,37 +54,6 @@ func (controller *authController) login(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-type changePasswordRequest struct {
-	CurrentPassword string `json:"currentPassword"`
-	NewPassword     string `json:"newPassword"`
-}
-
-func (controller *authController) changePassword(w http.ResponseWriter, r *http.Request) {
-	user, ok := middleware.CurrentUser(r.Context())
-	if !ok {
-		apiresponse.WriteError(w, http.StatusUnauthorized, "unauthorized", "Authentication required", "")
-		return
-	}
-	var request changePasswordRequest
-	if err := decodeJSON(w, r, &request); err != nil {
-		apiresponse.WriteError(w, http.StatusBadRequest, "invalid_request", "Invalid request", err.Error())
-		return
-	}
-	err := controller.service.ChangePassword(r.Context(), user.ID, request.CurrentPassword, request.NewPassword)
-	switch {
-	case errors.Is(err, usecase.ErrInvalidCredentials):
-		apiresponse.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "Current password is incorrect", "")
-		return
-	case errors.Is(err, usecase.ErrInvalidInput):
-		apiresponse.WriteError(w, http.StatusBadRequest, "invalid_password", "New password must contain 12 to 72 bytes", "")
-		return
-	case err != nil:
-		apiresponse.WriteError(w, http.StatusInternalServerError, "internal_error", "Internal server error", "")
-		return
-	}
-	controller.clearSessionCookie(w)
-	w.WriteHeader(http.StatusNoContent)
-}
 func (controller *authController) logout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(middleware.SessionCookieName); err == nil {
 		if err := controller.service.Logout(r.Context(), cookie.Value); err != nil {
@@ -112,22 +63,6 @@ func (controller *authController) logout(w http.ResponseWriter, r *http.Request)
 	}
 	controller.clearSessionCookie(w)
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (controller *authController) me(w http.ResponseWriter, r *http.Request) {
-	user, ok := middleware.CurrentUser(r.Context())
-	if !ok {
-		apiresponse.WriteError(w, http.StatusUnauthorized, "unauthorized", "Authentication required", "")
-		return
-	}
-	apiresponse.Write(w, http.StatusOK, userDocument{Data: userResource{
-		Type: "users",
-		ID:   strconv.FormatInt(user.ID, 10),
-		Attributes: userAttributes{
-			Username: user.Username,
-			Roles:    user.Roles,
-		},
-	}})
 }
 
 func (controller *authController) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {

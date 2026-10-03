@@ -3,6 +3,7 @@ package slot
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,11 +27,12 @@ func (r *repositoryStub) Save(_ context.Context, v entity.Slot) (entity.Slot, er
 func (r *repositoryStub) Delete(context.Context, int64) error { return r.err }
 func validSlot() entity.Slot {
 	start := time.Now().Add(time.Hour)
-	return entity.Slot{Title: "Математика", StartsAt: start, EndsAt: start.Add(time.Hour), Format: "online", Kind: "group", Capacity: 4, Occupied: 2, Status: "planned", Published: true}
+	return entity.Slot{DirectionID: 1, StartsAt: start, EndsAt: start.Add(time.Hour), Format: "online", Kind: "group", Capacity: 4, Occupied: 2, Status: "planned", Published: true}
 }
 func TestInvalidSlotNeverReachesRepository(t *testing.T) {
 	tests := map[string]func(*entity.Slot){
-		"empty title":         func(v *entity.Slot) { v.Title = " " },
+		"long level":          func(v *entity.Slot) { v.Level = strings.Repeat("Я", 81) },
+		"missing direction":   func(v *entity.Slot) { v.DirectionID = 0 },
 		"end before start":    func(v *entity.Slot) { v.EndsAt = v.StartsAt.Add(-time.Minute) },
 		"zero duration":       func(v *entity.Slot) { v.EndsAt = v.StartsAt },
 		"overbooking":         func(v *entity.Slot) { v.Occupied = 5 },
@@ -71,6 +73,13 @@ func TestMissingSlotMapsToNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := s.Delete(context.Background(), 7); !errors.Is(err, usecase.ErrNotFound) {
+		t.Fatal(err)
+	}
+}
+
+func TestUnknownDirectionReturnsInvalidInput(t *testing.T) {
+	_, err := New(&repositoryStub{err: repo.ErrInvalidInput}).Save(context.Background(), validSlot())
+	if !errors.Is(err, usecase.ErrInvalidInput) {
 		t.Fatal(err)
 	}
 }

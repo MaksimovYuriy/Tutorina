@@ -12,11 +12,13 @@ import (
 	"github.com/maksimovyuriy/tutorina/backend/internal/config"
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi"
 	"github.com/maksimovyuriy/tutorina/backend/internal/lib/logger"
+	keyrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/accesskey"
+	directionrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/direction"
 	sessionrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/session"
 	slotrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/slot"
-	userrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/user"
 	"github.com/maksimovyuriy/tutorina/backend/internal/storage/postgres"
 	authusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/auth"
+	directionusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/direction"
 	slotusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/slot"
 )
 
@@ -37,11 +39,12 @@ func Run() error {
 	}
 	defer database.Close()
 
-	users := userrepo.New(database)
+	keys := keyrepo.New(database)
 	sessions := sessionrepo.New(database)
-	auth := authusecase.New(users, sessions, cfg.Auth.SessionTTL)
+	auth := authusecase.New(keys, sessions, cfg.Auth.SessionTTL)
 	slots := slotusecase.New(slotrepo.New(database))
-	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, slots, cfg.Auth, log), log)
+	directions := directionusecase.New(directionrepo.New(database))
+	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, slots, directions, cfg.Auth, log), log)
 	serverErrors := make(chan error, 1)
 	go func() {
 		log.Info("API started", slog.String("address", server.Addr))

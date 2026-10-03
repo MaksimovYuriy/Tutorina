@@ -4,115 +4,81 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
-	"strings"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/maksimovyuriy/tutorina/backend/internal/entity"
 	"github.com/maksimovyuriy/tutorina/backend/internal/repo"
 	"github.com/maksimovyuriy/tutorina/backend/internal/usecase"
 )
 
-type UserRepository interface {
-	FindCredentialsByUsername(context.Context, string) (entity.Credentials, error)
-	FindCredentialsByID(context.Context, int64) (entity.Credentials, error)
-	UpdatePassword(context.Context, int64, string) error
-	FindByID(context.Context, int64) (entity.User, error)
+type KeyRepository interface {
+	Hash(context.Context) ([]byte, error)
 }
-
 type SessionRepository interface {
-	Create(context.Context, int64, []byte, time.Time) error
-	FindActiveUserID(context.Context, []byte, time.Time) (int64, error)
+	Create(context.Context, []byte, []byte, time.Time) error
+	FindActive(context.Context, []byte, time.Time) error
 	Revoke(context.Context, []byte, time.Time) error
-	RevokeAll(context.Context, int64, time.Time) error
 }
-
 type Service struct {
-	users    UserRepository
+	keys     KeyRepository
 	sessions SessionRepository
 	ttl      time.Duration
 	now      func() time.Time
 }
 
-func New(users UserRepository, sessions SessionRepository, ttl time.Duration) *Service {
-	return &Service{users: users, sessions: sessions, ttl: ttl, now: time.Now}
+func New(keys KeyRepository, sessions SessionRepository, ttl time.Duration) *Service {
+	return &Service{keys, sessions, ttl, time.Now}
 }
-
-func (service *Service) Login(ctx context.Context, username, password string) (entity.Session, error) {
-	username = strings.ToLower(strings.TrimSpace(username))
-	credentials, err := service.users.FindCredentialsByUsername(ctx, username)
+func (s *Service) Login(ctx context.Context, key string) (entity.Session, error) {
+	// A key is exactly 32 random bytes encoded as lowercase hexadecimal.
+	decoded, err := hex.DecodeString(key)
+	if err != nil || len(decoded) != 32 || hex.EncodeToString(decoded) != key {
+		return entity.Session{}, usecase.ErrInvalidCredentials
+	}
+	stored, err := s.keys.Hash(ctx)
 	if errors.Is(err, repo.ErrNotFound) {
 		return entity.Session{}, usecase.ErrInvalidCredentials
 	}
 	if err != nil {
 		return entity.Session{}, err
 	}
-	if !credentials.IsActive || bcrypt.CompareHashAndPassword([]byte(credentials.PasswordHash), []byte(password)) != nil {
+	hash := sha256.Sum256([]byte(key))
+	if subtle.ConstantTimeCompare(hash[:], stored) != 1 {
 		return entity.Session{}, usecase.ErrInvalidCredentials
 	}
-
-	randomBytes := make([]byte, 32)
-	if _, err := rand.Read(randomBytes); err != nil {
+	random := make([]byte, 32)
+	if _, err := rand.Read(random); err != nil {
 		return entity.Session{}, err
 	}
-	token := base64.RawURLEncoding.EncodeToString(randomBytes)
+	token := hex.EncodeToString(random)
 	tokenHash := sha256.Sum256([]byte(token))
-	expiresAt := service.now().Add(service.ttl)
-	if err := service.sessions.Create(ctx, credentials.ID, tokenHash[:], expiresAt); err != nil {
+	expires := s.now().Add(s.ttl)
+	if err := s.sessions.Create(ctx, hash[:], tokenHash[:], expires); err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return entity.Session{}, usecase.ErrInvalidCredentials
+		}
 		return entity.Session{}, err
 	}
-	return entity.Session{Token: token, ExpiresAt: expiresAt}, nil
+	return entity.Session{Token: token, ExpiresAt: expires}, nil
 }
-
-func (service *Service) Authenticate(ctx context.Context, token string) (entity.User, error) {
-	if token == "" {
-		return entity.User{}, usecase.ErrUnauthorized
+func (s *Service) Authenticate(ctx context.Context, token string) error {
+	if len(token) != 64 {
+		return usecase.ErrUnauthorized
 	}
-	tokenHash := sha256.Sum256([]byte(token))
-	userID, err := service.sessions.FindActiveUserID(ctx, tokenHash[:], service.now())
-	if errors.Is(err, repo.ErrNotFound) {
-		return entity.User{}, usecase.ErrUnauthorized
-	}
-	if err != nil {
-		return entity.User{}, err
-	}
-	user, err := service.users.FindByID(ctx, userID)
-	if errors.Is(err, repo.ErrNotFound) || (err == nil && !user.IsActive) {
-		return entity.User{}, usecase.ErrUnauthorized
-	}
-	return user, err
-}
-
-func (service *Service) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error {
-	if userID <= 0 || len(newPassword) < 12 || len(newPassword) > 72 {
-		return usecase.ErrInvalidInput
-	}
-	credentials, err := service.users.FindCredentialsByID(ctx, userID)
+	hash := sha256.Sum256([]byte(token))
+	err := s.sessions.FindActive(ctx, hash[:], s.now())
 	if errors.Is(err, repo.ErrNotFound) {
 		return usecase.ErrUnauthorized
 	}
-	if err != nil {
-		return err
-	}
-	if bcrypt.CompareHashAndPassword([]byte(credentials.PasswordHash), []byte(currentPassword)) != nil {
-		return usecase.ErrInvalidCredentials
-	}
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	if err := service.users.UpdatePassword(ctx, userID, string(passwordHash)); err != nil {
-		return err
-	}
-	return service.sessions.RevokeAll(ctx, userID, service.now())
+	return err
 }
-func (service *Service) Logout(ctx context.Context, token string) error {
+func (s *Service) Logout(ctx context.Context, token string) error {
 	if token == "" {
 		return nil
 	}
-	tokenHash := sha256.Sum256([]byte(token))
-	return service.sessions.Revoke(ctx, tokenHash[:], service.now())
+	hash := sha256.Sum256([]byte(token))
+	return s.sessions.Revoke(ctx, hash[:], s.now())
 }

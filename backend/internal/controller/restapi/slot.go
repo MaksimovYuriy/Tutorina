@@ -30,6 +30,7 @@ func (c slotController) listPublic(w http.ResponseWriter, r *http.Request) {
 	type publicSlot struct {
 		ID         int64     `json:"id"`
 		Title      string    `json:"title"`
+		Level      string    `json:"level"`
 		StartsAt   time.Time `json:"startsAt"`
 		EndsAt     time.Time `json:"endsAt"`
 		Format     string    `json:"format"`
@@ -38,7 +39,7 @@ func (c slotController) listPublic(w http.ResponseWriter, r *http.Request) {
 	}
 	result := make([]publicSlot, 0, len(slots))
 	for _, s := range slots {
-		result = append(result, publicSlot{s.ID, s.Title, s.StartsAt, s.EndsAt, s.Format, s.Kind, s.Capacity - s.Occupied})
+		result = append(result, publicSlot{s.ID, s.Title, s.Level, s.StartsAt, s.EndsAt, s.Format, s.Kind, s.Capacity - s.Occupied})
 	}
 	writeJSON(w, 200, map[string]any{"data": result})
 }
@@ -53,13 +54,25 @@ func (c slotController) listAdmin(w http.ResponseWriter, r *http.Request) {
 func (c slotController) create(w http.ResponseWriter, r *http.Request) { c.save(w, r, false) }
 func (c slotController) update(w http.ResponseWriter, r *http.Request) { c.save(w, r, true) }
 func (c slotController) save(w http.ResponseWriter, r *http.Request, update bool) {
-	var input entity.Slot
-	if err := decodeJSON(w, r, &input); err != nil || input.ID != 0 {
+	var request struct {
+		DirectionID int64     `json:"directionId"`
+		Level       string    `json:"level"`
+		StartsAt    time.Time `json:"startsAt"`
+		EndsAt      time.Time `json:"endsAt"`
+		Format      string    `json:"format"`
+		Kind        string    `json:"kind"`
+		Capacity    int       `json:"capacity"`
+		Occupied    int       `json:"occupied"`
+		Status      string    `json:"status"`
+		Published   bool      `json:"published"`
+	}
+	if err := decodeJSON(w, r, &request); err != nil {
 		slotError(w, usecase.ErrInvalidInput)
 		return
 	}
+	input := entity.Slot{DirectionID: request.DirectionID, Level: request.Level, StartsAt: request.StartsAt, EndsAt: request.EndsAt, Format: request.Format, Kind: request.Kind, Capacity: request.Capacity, Occupied: request.Occupied, Status: request.Status, Published: request.Published}
 	if update {
-		id, err := slotID(r)
+		id, err := resourceID(r)
 		if err != nil {
 			slotError(w, err)
 			return
@@ -78,7 +91,7 @@ func (c slotController) save(w http.ResponseWriter, r *http.Request, update bool
 	writeJSON(w, status, map[string]any{"data": result})
 }
 func (c slotController) delete(w http.ResponseWriter, r *http.Request) {
-	id, err := slotID(r)
+	id, err := resourceID(r)
 	if err == nil {
 		err = c.service.Delete(r.Context(), id)
 	}
@@ -88,7 +101,7 @@ func (c slotController) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(204)
 }
-func slotID(r *http.Request) (int64, error) {
+func resourceID(r *http.Request) (int64, error) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
 		return 0, usecase.ErrInvalidInput
@@ -98,7 +111,7 @@ func slotID(r *http.Request) (int64, error) {
 func slotError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, usecase.ErrInvalidInput):
-		apiresponse.WriteError(w, 400, "invalid_input", "Проверьте время, вместимость и занятость слота.", "")
+		apiresponse.WriteError(w, 400, "invalid_input", "Проверьте направление, уровень, время, вместимость и занятость слота.", "")
 	case errors.Is(err, usecase.ErrNotFound):
 		apiresponse.WriteError(w, 404, "not_found", "Слот не найден.", "")
 	default:

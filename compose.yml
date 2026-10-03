@@ -83,13 +83,12 @@ services:
         condition: service_healthy
     logging: *default-logging
 
-  create-user:
+  create-key:
     build:
       context: ./backend
-    command: ["./tutorina-user", "-username", "${BOOTSTRAP_USERNAME:-admin}", "-roles", "admin"]
+    command: ["./tutorina-key"]
     profiles: ["tools"]
     environment:
-      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_USER: ${DB_USER:-tutorina}

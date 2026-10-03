@@ -1,0 +1,336 @@
+.school-schedule {
+  border: 1px solid #d5dbd4;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fffdf7;
+  box-shadow: 0 12px 32px #2943390a;
+}
+.school-schedule-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px 28px;
+  background: #36584b;
+  color: #fffdf3;
+}
+.school-schedule-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #d6e4d9;
+  font-weight: 700;
+}
+.school-schedule-top h2 {
+  margin: 10px 0 7px;
+  font-family: Georgia, serif;
+  font-weight: 400;
+  font-size: 1.5rem;
+}
+.school-schedule-top p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #dae4db;
+}
+.school-week-controls {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ffffff40;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.school-week-controls .MuiButton-root {
+  color: #fffdf3;
+  min-width: 46px;
+  min-height: 42px;
+}
+.school-week-controls .MuiButton-root:hover {
+  background: #ffffff15;
+}
+.school-week-summary {
+  padding: 12px 24px;
+  border-bottom: 1px solid #d5dbd4;
+  font-size: 0.85rem;
+  color: #6a7062;
+}
+.school-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.school-table th,
+.school-table td {
+  border-right: 1px solid #dce1d7;
+  border-bottom: 1px solid #dce1d7;
+}
+.school-table tr > :last-child {
+  border-right: none;
+}
+.school-table tbody tr:last-child > * {
+  border-bottom: none;
+}
+.school-table thead th {
+  background: #f1f3e9;
+  padding: 17px 6px;
+  color: #3d5147;
+  font-size: 0.79rem;
+  font-weight: 700;
+}
+.school-table thead th span,
+.school-table thead th small {
+  display: block;
+}
+.school-table thead th small {
+  margin-top: 6px;
+  color: #7b826e;
+  font-weight: 400;
+}
+.school-time-heading {
+  width: 72px;
+  text-align: center;
+}
+.school-table tbody th {
+  background: #f8f8ef;
+  vertical-align: top;
+  padding: 15px 5px;
+}
+.school-table tbody th small {
+  display: block;
+  font-size: 0.7rem;
+  color: #8a907f;
+  margin-bottom: 8px;
+}
+.school-table tbody th strong {
+  color: #55614d;
+  font-size: 0.85rem;
+}
+.school-table td {
+  padding: 6px;
+  vertical-align: top;
+  height: 128px;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 31px,
+    #79908706 31px,
+    #79908706 32px
+  );
+}
+.school-table .school-today {
+  background-color: #eaf0e0;
+}
+.school-cell-lessons {
+  display: grid;
+  gap: 6px;
+}
+.school-empty-cell {
+  display: block;
+  text-align: center;
+  padding: 20px 0;
+  color: #c3c9bb;
+}
+.school-lesson {
+  padding: 10px 9px;
+  border: 1px solid #d7deca;
+  border-left: 3px solid #638661;
+  border-radius: 5px;
+  background: #f0f4e5;
+  overflow-wrap: anywhere;
+}
+.school-lesson h3 {
+  margin: 8px 0 7px;
+  color: #35482f;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.school-lesson-time {
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #627450;
+}
+.school-lesson-time span {
+  font-weight: 400;
+}
+.school-lesson-level {
+  color: #4e6444;
+  font-size: 0.76rem;
+  margin-bottom: 7px;
+}
+.school-lesson-details,
+.school-lesson-status {
+  font-size: 0.72rem;
+  color: #71766a;
+  line-height: 1.5;
+}
+.school-lesson-places {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #4f6940;
+  margin-top: 8px;
+}
+.school-lesson--hidden {
+  background: #f1eef6;
+  border-color: #ded8ea;
+  border-left-color: #9284a8;
+}
+.school-lesson--full {
+  background: #fff4d9;
+  border-color: #eadab4;
+  border-left-color: #bc9850;
+}
+.school-lesson--cancelled {
+  background: #f8ece9;
+  border-color: #ead3cb;
+  border-left-color: #b77c69;
+}
+.school-lesson--completed {
+  background: #eeeeea;
+  border-color: #d9dad3;
+  border-left-color: #919587;
+}
+.school-lesson-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 5px;
+}
+.school-lesson-actions .MuiButton-root {
+  font-size: 0.7rem;
+  padding: 4px 2px;
+  min-width: 0;
+  min-height: 32px;
+}
+.school-mobile {
+  display: none;
+}
+.school-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 999px) {
+  .school-desktop {
+    display: none;
+  }
+  .school-mobile {
+    display: block;
+    padding: 16px;
+  }
+  .school-schedule-top {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 22px 18px;
+    gap: 18px;
+  }
+  .school-schedule-top h2 {
+    font-size: 1.2rem;
+    line-height: 1.5;
+  }
+  .school-week-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .school-week-summary {
+    padding: 12px 18px;
+  }
+  .school-day-picker {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+  }
+  .school-day-picker button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 8px 2px 0;
+    background: transparent;
+    color: #6c7765;
+    cursor: pointer;
+    min-height: 64px;
+  }
+  .school-day-picker button:focus-visible {
+    outline: 2px solid #36584b;
+    outline-offset: 1px;
+  }
+  .school-day-picker span {
+    font-size: 0.7rem;
+  }
+  .school-day-picker strong {
+    margin-top: 4px;
+    font-size: 0.9rem;
+  }
+  .school-day-picker i {
+    font-size: 0.75rem;
+    height: 14px;
+    font-style: normal;
+  }
+  .school-day-picker .school-day-selected {
+    background: #36584b;
+    color: #fffdf3;
+  }
+  .school-day-heading {
+    font-size: 0.95rem;
+    font-weight: 650;
+    color: #475b40;
+    margin: 22px 0 14px;
+  }
+  .school-day-lessons {
+    display: grid;
+    gap: 12px;
+  }
+  .school-lesson {
+    padding: 16px;
+  }
+  .school-lesson h3 {
+    font-size: 1.1rem;
+  }
+  .school-lesson-details,
+  .school-lesson-status,
+  .school-lesson-time,
+  .school-lesson-level,
+  .school-lesson-places {
+    font-size: 0.85rem;
+  }
+  .school-day-empty {
+    padding: 30px 12px;
+    background: repeating-linear-gradient(
+      to bottom,
+      #fffdf7 0,
+      #fffdf7 31px,
+      #dce1d740 31px,
+      #dce1d740 32px
+    );
+    border: 1px dashed #d5dbd4;
+    border-radius: 8px;
+    color: #7b826e;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+  .school-lesson-actions .MuiButton-root {
+    min-height: 40px;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+  }
+}
+
+.school-week-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  justify-content: space-between;
+  align-items: center;
+}
+.school-week-summary .MuiButton-root {
+  min-height: 32px;
+  color: #36584b;
+  font-size: 0.8rem;
+}

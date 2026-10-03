@@ -1,9 +1,11 @@
+import { DirectionsPage } from './pages/DirectionsPage/DirectionsPage'
 import { AdminPage } from './pages/AdminPage/AdminPage'
 import { BoardPage } from './pages/BoardPage/BoardPage'
 import { LoginPage } from './pages/LoginPage/LoginPage'
 export function App() {
   const path = window.location.pathname
   if (path === '/admin' || path === '/admin/schedule') return <AdminPage />
+  if (path === '/admin/directions') return <DirectionsPage />
   if (path === '/login') return <LoginPage />
   if (path !== '/')
     return (

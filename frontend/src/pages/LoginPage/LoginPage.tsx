@@ -13,9 +13,8 @@ import { ApiError, login } from '../../services/api'
 import './LoginPage.css'
 
 export function LoginPage() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  const [key, setKey] = useState('')
+  const [showKey, setShowKey] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -24,11 +23,11 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await login(username, password)
+      await login(key.trim())
       window.location.assign('/admin')
     } catch (caughtError: unknown) {
       if (caughtError instanceof ApiError && caughtError.status === 401) {
-        setError('Проверьте логин и пароль — они не подошли.')
+        setError('Ключ доступа не подошёл. Проверьте его и попробуйте снова.')
       } else {
         setError('Не удалось войти. Пожалуйста, попробуйте ещё раз.')
       }
@@ -111,22 +110,13 @@ export function LoginPage() {
 
             <Stack spacing={2.25}>
               <TextField
-                label="Логин"
-                type="text"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                autoComplete="username"
+                label="Ключ доступа"
+                type={showKey ? 'text' : 'password'}
+                value={key}
+                onChange={(event) => setKey(event.target.value)}
+                autoComplete="off"
+                required
                 autoFocus
-                required
-                fullWidth
-              />
-              <TextField
-                label="Пароль"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
-                required
                 fullWidth
                 slotProps={{
                   input: {
@@ -134,13 +124,11 @@ export function LoginPage() {
                       <InputAdornment position="end">
                         <Button
                           type="button"
-                          className="password-toggle"
-                          onClick={() => setShowPassword((visible) => !visible)}
-                          aria-label={
-                            showPassword ? 'Скрыть пароль' : 'Показать пароль'
-                          }
+                          className="access-key-toggle"
+                          onClick={() => setShowKey((visible) => !visible)}
+                          aria-label={showKey ? 'Скрыть ключ' : 'Показать ключ'}
                         >
-                          {showPassword ? 'Скрыть' : 'Показать'}
+                          {showKey ? 'Скрыть' : 'Показать'}
                         </Button>
                       </InputAdornment>
                     ),
@@ -168,8 +156,7 @@ export function LoginPage() {
             </Button>
 
             <Typography className="login-help" color="text.secondary">
-              Нет доступа или забыли пароль? Обратитесь к администратору
-              проекта.
+              Введите ключ доступа к админке расписания.
             </Typography>
           </Stack>
         </Box>

@@ -1,13 +1,4 @@
 import { useEffect, useState } from 'react'
-export function slotTime(value: string) {
-  return new Intl.DateTimeFormat('ru-RU', {
-    timeZone: 'Europe/Moscow',
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value))
-}
 export function useCurrentTime() {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {

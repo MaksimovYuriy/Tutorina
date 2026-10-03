@@ -3,9 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
-  Chip,
   CircularProgress,
   Container,
   Stack,
@@ -14,7 +11,8 @@ import {
 } from '@mui/material'
 import { BrandLink } from '../../components/BrandLink'
 import { getPublicSlots, type PublicSlot } from '../../services/api'
-import { slotTime, useCurrentTime } from '../../services/time'
+import { SchoolSchedule } from '../../components/SchoolSchedule/SchoolSchedule'
+import { useCurrentTime } from '../../services/time'
 export function BoardPage() {
   const now = useCurrentTime()
   const [slots, setSlots] = useState<PublicSlot[]>([])
@@ -36,7 +34,7 @@ export function BoardPage() {
   }, [version])
   const available = slots.filter(
     (s) =>
-      s.title
+      `${s.title} ${s.level}`
         .toLocaleLowerCase('ru')
         .includes(filter.toLocaleLowerCase('ru')) &&
       new Date(s.startsAt).getTime() > now,
@@ -52,19 +50,21 @@ export function BoardPage() {
         <Button href="/login">Вход администратора</Button>
       </Stack>
       <Box sx={{ my: 6 }}>
-        <Typography variant="h1">Свободное время для занятий</Typography>
+        <Typography variant="h1">Расписание занятий</Typography>
         <Typography color="text.secondary" sx={{ mt: 2 }}>
-          Доступные слоты и свободные места. Всё время указано по Москве.
+          Как на школьной доске: выберите неделю и найдите свободное время для
+          занятия.
         </Typography>
       </Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
         <TextField
-          label="Поиск по направлению"
+          label="Поиск по направлению или уровню"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           fullWidth
         />
         <Button
+          disabled={loading}
           onClick={() => {
             setLoading(true)
             setError('')
@@ -74,51 +74,17 @@ export function BoardPage() {
           Обновить
         </Button>
       </Stack>
-      {loading ? (
+      {!loading && !error && filter.trim() && !available.length && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          По вашему запросу занятий не найдено.
+        </Alert>
+      )}
+      {loading && version === 0 ? (
         <CircularProgress aria-label="Загрузка расписания" />
       ) : error ? (
         <Alert severity="error">{error}</Alert>
-      ) : !available.length ? (
-        <Alert severity="info">
-          {slots.length
-            ? 'Нет слотов по выбранному направлению.'
-            : 'Сейчас нет свободных слотов. Загляните позже.'}
-        </Alert>
       ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
-            gap: 2,
-          }}
-        >
-          {available.map((s) => (
-            <Card key={s.id}>
-              <CardContent>
-                <Typography variant="h3">{s.title}</Typography>
-                <Typography sx={{ my: 2 }}>{slotTime(s.startsAt)}</Typography>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  useFlexGap
-                  sx={{ flexWrap: 'wrap' }}
-                >
-                  <Chip label={s.format === 'online' ? 'Онлайн' : 'Очно'} />
-                  <Chip
-                    label={s.kind === 'individual' ? 'Индивидуально' : 'Группа'}
-                  />
-                  <Chip
-                    label={`${Math.round((Date.parse(s.endsAt) - Date.parse(s.startsAt)) / 60000)} мин`}
-                  />
-                  <Chip
-                    color="primary"
-                    label={`Свободных мест: ${s.freePlaces}`}
-                  />
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
+        <SchoolSchedule slots={available} />
       )}
     </Container>
   )

@@ -3,8 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Checkbox,
   CircularProgress,
   Container,
@@ -18,21 +16,23 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { BrandLink } from '../../components/BrandLink'
+import { AdminHeader } from '../../components/AdminHeader'
 import {
   ApiError,
-  changePassword,
   deleteSlot,
   getAdminSlots,
-  getCurrentUser,
-  logout,
+  getDirections,
+  type Direction,
+  requireSession,
   saveSlot,
+  slotStatusLabels,
   type Slot,
   type SlotInput,
 } from '../../services/api'
-import { slotTime, useCurrentTime } from '../../services/time'
+import { SchoolSchedule } from '../../components/SchoolSchedule/SchoolSchedule'
 const empty: SlotInput = {
-  title: '',
+  directionId: 0,
+  level: '',
   startsAt: '',
   endsAt: '',
   format: 'online',
@@ -42,28 +42,19 @@ const empty: SlotInput = {
   status: 'planned',
   published: false,
 }
-const statuses = {
-  planned: 'Запланирован',
-  completed: 'Завершён',
-  cancelled: 'Отменён',
-}
 function localTime(value: string) {
   return new Date(Date.parse(value) + 3 * 3600000).toISOString().slice(0, 16)
 }
 export function AdminPage() {
-  const now = useCurrentTime()
   const [slots, setSlots] = useState<Slot[]>([])
+  const [directions, setDirections] = useState<Direction[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [username, setUsername] = useState('')
   const [editing, setEditing] = useState(false)
   const [id, setId] = useState<number>()
   const [form, setForm] = useState<SlotInput>(empty)
   const [busy, setBusy] = useState(false)
   const [removing, setRemoving] = useState<Slot>()
-  const [passwordOpen, setPasswordOpen] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
   function handleError(e: unknown) {
     if (e instanceof ApiError && e.status === 401) {
       window.location.assign('/login')
@@ -74,12 +65,13 @@ export function AdminPage() {
   useEffect(() => {
     const controller = new AbortController()
     Promise.all([
-      getCurrentUser(controller.signal),
+      requireSession(controller.signal),
       getAdminSlots(controller.signal),
+      getDirections(controller.signal),
     ])
-      .then(([user, data]) => {
-        setUsername(user.username)
+      .then(([, data, directions]) => {
         setSlots(data)
+        setDirections(directions)
       })
       .catch((e) => {
         if (!controller.signal.aborted) handleError(e)
@@ -95,7 +87,8 @@ export function AdminPage() {
     setForm(
       slot
         ? {
-            title: slot.title,
+            directionId: slot.directionId,
+            level: slot.level,
             startsAt: localTime(slot.startsAt),
             endsAt: localTime(slot.endsAt),
             format: slot.format,
@@ -105,7 +98,7 @@ export function AdminPage() {
             status: slot.status,
             published: slot.published,
           }
-        : { ...empty },
+        : { ...empty, directionId: directions[0]?.id ?? 0 },
     )
     setEditing(true)
   }
@@ -144,50 +137,9 @@ export function AdminPage() {
       setBusy(false)
     }
   }
-  async function updatePassword(e: FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    setError('')
-    try {
-      await changePassword(currentPassword, newPassword)
-      window.location.assign('/login')
-    } catch (e) {
-      handleError(e)
-    } finally {
-      setBusy(false)
-    }
-  }
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        sx={{ justifyContent: 'space-between' }}
-      >
-        <BrandLink />
-        <Stack direction="row" spacing={1}>
-          <Button
-            onClick={() => {
-              setError('')
-              setPasswordOpen(true)
-            }}
-          >
-            Сменить пароль
-          </Button>
-          <Button
-            onClick={async () => {
-              try {
-                await logout()
-                window.location.assign('/login')
-              } catch (e) {
-                handleError(e)
-              }
-            }}
-          >
-            Выйти
-          </Button>
-        </Stack>
-      </Stack>
+      <AdminHeader onError={handleError} />
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
@@ -200,14 +152,24 @@ export function AdminPage() {
         <Box>
           <Typography variant="h1">Расписание</Typography>
           <Typography color="text.secondary">
-            Администратор: {username} · Время по Москве
+            Управление слотами · Время по Москве
           </Typography>
         </Box>
-        <Button variant="contained" onClick={() => edit()} disabled={loading}>
+        <Button
+          variant="contained"
+          onClick={() => edit()}
+          disabled={loading || directions.length === 0}
+        >
           Добавить слот
         </Button>
       </Stack>
-      {error && !editing && !passwordOpen && (
+      {!loading && directions.length === 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Сначала <Button href="/admin/directions">добавьте направление</Button>
+          , затем создайте слот.
+        </Alert>
+      )}
+      {error && !editing && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
@@ -215,57 +177,14 @@ export function AdminPage() {
       {loading ? (
         <CircularProgress aria-label="Загрузка" />
       ) : (
-        <Stack spacing={2}>
-          {!slots.length && (
-            <Alert severity="info">
-              Расписание пустое. Добавьте первый слот.
-            </Alert>
-          )}
-          {slots.map((s) => (
-            <Card key={s.id}>
-              <CardContent>
-                <Stack
-                  direction={{ xs: 'column', md: 'row' }}
-                  spacing={2}
-                  sx={{ justifyContent: 'space-between' }}
-                >
-                  <Box>
-                    <Typography variant="h3">{s.title}</Typography>
-                    <Typography>
-                      {slotTime(s.startsAt)} — {slotTime(s.endsAt)}
-                    </Typography>
-                    <Typography color="text.secondary">
-                      {s.format === 'online' ? 'Онлайн' : 'Очно'} ·{' '}
-                      {s.kind === 'individual' ? 'Индивидуально' : 'Группа'} ·
-                      Занято {s.occupied} из {s.capacity}
-                    </Typography>
-                    <Typography>
-                      {statuses[s.status]} ·{' '}
-                      {s.published &&
-                      s.status === 'planned' &&
-                      s.occupied < s.capacity &&
-                      Date.parse(s.startsAt) > now
-                        ? 'На доске'
-                        : 'Скрыт с доски'}
-                    </Typography>
-                  </Box>
-                  <Stack direction="row" spacing={1}>
-                    <Button onClick={() => edit(s)}>Изменить</Button>
-                    <Button
-                      color="error"
-                      onClick={() => {
-                        setError('')
-                        setRemoving(s)
-                      }}
-                    >
-                      Удалить
-                    </Button>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
+        <SchoolSchedule
+          slots={slots}
+          onEdit={edit}
+          onDelete={(slot) => {
+            setError('')
+            setRemoving(slot)
+          }}
+        />
       )}
       <Dialog
         open={editing}
@@ -281,11 +200,26 @@ export function AdminPage() {
             <Stack spacing={2} sx={{ pt: 1 }}>
               {error && <Alert severity="error">{error}</Alert>}
               <TextField
+                select
                 label="Направление"
                 required
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                slotProps={{ htmlInput: { maxLength: 120 } }}
+                value={form.directionId || ''}
+                onChange={(e) =>
+                  setForm({ ...form, directionId: Number(e.target.value) })
+                }
+              >
+                {directions.map((direction) => (
+                  <MenuItem key={direction.id} value={direction.id}>
+                    {direction.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Уровень занятия"
+                value={form.level}
+                onChange={(e) => setForm({ ...form, level: e.target.value })}
+                helperText="Например: Начальный, A2 или 7 класс"
+                slotProps={{ htmlInput: { maxLength: 80 } }}
               />
               <TextField
                 label="Начало (Москва)"
@@ -374,7 +308,7 @@ export function AdminPage() {
                   })
                 }
               >
-                {Object.entries(statuses).map(([key, label]) => (
+                {Object.entries(slotStatusLabels).map(([key, label]) => (
                   <MenuItem key={key} value={key}>
                     {label}
                   </MenuItem>
@@ -419,49 +353,6 @@ export function AdminPage() {
             Удалить
           </Button>
         </DialogActions>
-      </Dialog>
-      <Dialog
-        open={passwordOpen}
-        onClose={() => {
-          if (!busy) setPasswordOpen(false)
-        }}
-        fullWidth
-        maxWidth="sm"
-      >
-        <Box component="form" onSubmit={updatePassword}>
-          <DialogTitle>Сменить пароль</DialogTitle>
-          <DialogContent>
-            <Stack spacing={2} sx={{ pt: 1 }}>
-              {error && <Alert severity="error">{error}</Alert>}
-              <TextField
-                type="password"
-                label="Текущий пароль"
-                autoComplete="current-password"
-                required
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-              <TextField
-                type="password"
-                label="Новый пароль"
-                autoComplete="new-password"
-                required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                slotProps={{ htmlInput: { minLength: 12, maxLength: 72 } }}
-                helperText="Не менее 12 символов. После смены нужно войти заново."
-              />
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button disabled={busy} onClick={() => setPasswordOpen(false)}>
-              Отмена
-            </Button>
-            <Button type="submit" disabled={busy}>
-              Сохранить
-            </Button>
-          </DialogActions>
-        </Box>
       </Dialog>
     </Container>
   )

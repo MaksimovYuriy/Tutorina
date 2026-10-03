@@ -4,139 +4,95 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
-	"github.com/maksimovyuriy/tutorina/backend/internal/entity"
 	"github.com/maksimovyuriy/tutorina/backend/internal/repo"
 	"github.com/maksimovyuriy/tutorina/backend/internal/usecase"
 )
 
-func TestLoginCreatesHashedSession(t *testing.T) {
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte("correct horse battery staple"), bcrypt.MinCost)
-	if err != nil {
-		t.Fatal(err)
-	}
-	users := &userRepositoryStub{credentials: entity.Credentials{User: entity.User{ID: 42, IsActive: true}, PasswordHash: string(passwordHash)}}
-	sessions := &sessionRepositoryStub{}
-	service := New(users, sessions, 2*time.Hour)
-	fixedNow := time.Date(2026, time.September, 30, 12, 0, 0, 0, time.UTC)
-	service.now = func() time.Time { return fixedNow }
+const testKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
-	session, err := service.Login(context.Background(), " Admin ", "correct horse battery staple")
-	if err != nil {
-		t.Fatalf("Login() error = %v", err)
-	}
-	if users.requestedUsername != "admin" {
-		t.Fatalf("normalized username = %q", users.requestedUsername)
-	}
-	if session.Token == "" || !session.ExpiresAt.Equal(fixedNow.Add(2*time.Hour)) {
-		t.Fatalf("session = %#v", session)
-	}
-	wantHash := sha256.Sum256([]byte(session.Token))
-	if sessions.createdUserID != 42 || string(sessions.createdTokenHash) != string(wantHash[:]) {
-		t.Fatal("session repository did not receive the user id and SHA-256 token hash")
-	}
+type keyStub struct {
+	hash []byte
+	err  error
 }
 
-func TestLoginDoesNotRevealCredentialFailure(t *testing.T) {
-	validHash, err := bcrypt.GenerateFromPassword([]byte("correct password"), bcrypt.MinCost)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tests := []struct {
-		name  string
-		users *userRepositoryStub
-	}{
-		{name: "unknown username", users: &userRepositoryStub{credentialsError: repo.ErrNotFound}},
-		{name: "wrong password", users: &userRepositoryStub{credentials: entity.Credentials{User: entity.User{IsActive: true}, PasswordHash: string(validHash)}}},
-		{name: "inactive user", users: &userRepositoryStub{credentials: entity.Credentials{User: entity.User{IsActive: false}, PasswordHash: string(validHash)}}},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := New(test.users, &sessionRepositoryStub{}, time.Hour).Login(context.Background(), "admin", "wrong password")
-			if !errors.Is(err, usecase.ErrInvalidCredentials) {
-				t.Fatalf("Login() error = %v", err)
-			}
-		})
-	}
+func (k keyStub) Hash(context.Context) ([]byte, error) { return k.hash, k.err }
+
+type sessionStub struct {
+	keyHash, tokenHash, revokedHash []byte
+	expiresAt                       time.Time
+	createErr, findErr              error
+	created                         bool
 }
 
-func TestChangePasswordUpdatesHashAndRevokesSessions(t *testing.T) {
-	oldHash, err := bcrypt.GenerateFromPassword([]byte("old-password-123"), bcrypt.MinCost)
-	if err != nil {
-		t.Fatal(err)
-	}
-	users := &userRepositoryStub{credentials: entity.Credentials{User: entity.User{ID: 17, IsActive: true}, PasswordHash: string(oldHash)}}
-	sessions := &sessionRepositoryStub{}
-	service := New(users, sessions, time.Hour)
-	fixedNow := time.Date(2026, time.October, 2, 12, 0, 0, 0, time.UTC)
-	service.now = func() time.Time { return fixedNow }
-
-	if err := service.ChangePassword(context.Background(), 17, "old-password-123", "new-password-123"); err != nil {
-		t.Fatal(err)
-	}
-	if users.updatedUserID != 17 || bcrypt.CompareHashAndPassword([]byte(users.updatedPasswordHash), []byte("new-password-123")) != nil {
-		t.Fatal("new password hash was not stored")
-	}
-	if sessions.revokedUserID != 17 || !sessions.revokedAt.Equal(fixedNow) {
-		t.Fatal("user sessions were not revoked")
-	}
+func (s *sessionStub) Create(_ context.Context, key, token []byte, expires time.Time) error {
+	s.keyHash = key
+	s.tokenHash = token
+	s.expiresAt = expires
+	s.created = true
+	return s.createErr
 }
-
-type userRepositoryStub struct {
-	credentials         entity.Credentials
-	credentialsError    error
-	user                entity.User
-	userError           error
-	requestedUsername   string
-	updatedUserID       int64
-	updatedPasswordHash string
-}
-
-func (stub *userRepositoryStub) FindCredentialsByUsername(_ context.Context, username string) (entity.Credentials, error) {
-	stub.requestedUsername = username
-	return stub.credentials, stub.credentialsError
-}
-
-func (stub *userRepositoryStub) FindCredentialsByID(context.Context, int64) (entity.Credentials, error) {
-	return stub.credentials, stub.credentialsError
-}
-func (stub *userRepositoryStub) UpdatePassword(_ context.Context, userID int64, passwordHash string) error {
-	stub.updatedUserID = userID
-	stub.updatedPasswordHash = passwordHash
+func (s *sessionStub) FindActive(context.Context, []byte, time.Time) error { return s.findErr }
+func (s *sessionStub) Revoke(_ context.Context, hash []byte, _ time.Time) error {
+	s.revokedHash = hash
 	return nil
 }
-
-func (stub *userRepositoryStub) FindByID(context.Context, int64) (entity.User, error) {
-	return stub.user, stub.userError
+func TestKeyLoginCreatesIndependentHashedSession(t *testing.T) {
+	hash := sha256.Sum256([]byte(testKey))
+	sessions := &sessionStub{}
+	service := New(keyStub{hash: hash[:]}, sessions, time.Hour)
+	now := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	session, err := service.Login(context.Background(), testKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(session.Token) != 64 || session.Token == testKey || !session.ExpiresAt.Equal(now.Add(time.Hour)) {
+		t.Fatalf("unexpected session")
+	}
+	tokenHash := sha256.Sum256([]byte(session.Token))
+	if string(sessions.keyHash) != string(hash[:]) || string(sessions.tokenHash) != string(tokenHash[:]) {
+		t.Fatal("repository did not receive hashed credentials")
+	}
 }
-
-type sessionRepositoryStub struct {
-	createdUserID    int64
-	createdTokenHash []byte
-	createdExpiresAt time.Time
-	revokedUserID    int64
-	revokedAt        time.Time
+func TestInvalidKeyNeverCreatesSession(t *testing.T) {
+	hash := sha256.Sum256([]byte(testKey))
+	for _, key := range []string{"", strings.Repeat("a", 63), strings.Repeat("a", 65), strings.Repeat("z", 64), strings.ToUpper(testKey), strings.Repeat("b", 64)} {
+		sessions := &sessionStub{}
+		_, err := New(keyStub{hash: hash[:]}, sessions, time.Hour).Login(context.Background(), key)
+		if !errors.Is(err, usecase.ErrInvalidCredentials) || sessions.created {
+			t.Fatalf("invalid key accepted")
+		}
+	}
 }
-
-func (stub *sessionRepositoryStub) Create(_ context.Context, userID int64, tokenHash []byte, expiresAt time.Time) error {
-	stub.createdUserID = userID
-	stub.createdTokenHash = append([]byte(nil), tokenHash...)
-	stub.createdExpiresAt = expiresAt
-	return nil
+func TestUnconfiguredOrRotatedKeyRejectsLogin(t *testing.T) {
+	hash := sha256.Sum256([]byte(testKey))
+	for _, tc := range []struct{ keyErr, sessionErr error }{{repo.ErrNotFound, nil}, {nil, repo.ErrNotFound}} {
+		_, err := New(keyStub{hash: hash[:], err: tc.keyErr}, &sessionStub{createErr: tc.sessionErr}, time.Hour).Login(context.Background(), testKey)
+		if !errors.Is(err, usecase.ErrInvalidCredentials) {
+			t.Fatal(err)
+		}
+	}
 }
-
-func (stub *sessionRepositoryStub) FindActiveUserID(context.Context, []byte, time.Time) (int64, error) {
-	return 0, repo.ErrNotFound
+func TestSessionExpiryOrRevocationRejectsAuthentication(t *testing.T) {
+	service := New(keyStub{}, &sessionStub{findErr: repo.ErrNotFound}, time.Hour)
+	for _, token := range []string{"", testKey} {
+		if err := service.Authenticate(context.Background(), token); !errors.Is(err, usecase.ErrUnauthorized) {
+			t.Fatal(err)
+		}
+	}
 }
-
-func (stub *sessionRepositoryStub) RevokeAll(_ context.Context, userID int64, now time.Time) error {
-	stub.revokedUserID = userID
-	stub.revokedAt = now
-	return nil
+func TestLogoutUsesHashedToken(t *testing.T) {
+	sessions := &sessionStub{}
+	service := New(keyStub{}, sessions, time.Hour)
+	if err := service.Logout(context.Background(), testKey); err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.Sum256([]byte(testKey))
+	if string(hash[:]) != string(sessions.revokedHash) {
+		t.Fatal("logout used raw token")
+	}
 }
-
-func (stub *sessionRepositoryStub) Revoke(context.Context, []byte, time.Time) error { return nil }

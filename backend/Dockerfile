@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tutorina-api ./cmd/api
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tutorina-migrate ./cmd/migrate
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tutorina-user ./cmd/user
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tutorina-key ./cmd/key
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates
@@ -15,7 +15,7 @@ WORKDIR /app
 
 COPY --from=build /out/tutorina-api ./tutorina-api
 COPY --from=build /out/tutorina-migrate ./tutorina-migrate
-COPY --from=build /out/tutorina-user ./tutorina-user
+COPY --from=build /out/tutorina-key ./tutorina-key
 COPY --from=build /app/migrations ./migrations
 
 EXPOSE 8081

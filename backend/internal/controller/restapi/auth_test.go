@@ -16,67 +16,63 @@ import (
 	"github.com/maksimovyuriy/tutorina/backend/internal/usecase"
 )
 
-func TestLoginSetsSecureSessionCookie(t *testing.T) {
-	service := &httpAuthStub{session: entity.Session{Token: "secret-token", ExpiresAt: time.Now().Add(time.Hour)}}
-	router := testRouter(service, true)
-	request := httptest.NewRequest(http.MethodPost, "/v1/auth/sessions", strings.NewReader(`{"username":"admin","password":"password"}`))
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, request)
-
-	if response.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, body = %q", response.Code, response.Body.String())
-	}
-	cookies := response.Result().Cookies()
-	if len(cookies) != 1 || cookies[0].Name != middleware.SessionCookieName || !cookies[0].HttpOnly || !cookies[0].Secure {
-		t.Fatalf("session cookie = %#v", cookies)
-	}
-}
-
-func TestMeRequiresAuthentication(t *testing.T) {
-	router := testRouter(&httpAuthStub{authenticateError: usecase.ErrUnauthorized}, false)
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v1/auth/me", nil))
-	if response.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, body = %q", response.Code, response.Body.String())
-	}
-}
-
-func TestMeReturnsRoles(t *testing.T) {
-	service := &httpAuthStub{user: entity.User{ID: 7, Username: "admin", Roles: []entity.Role{entity.RoleAdmin}, IsActive: true}}
-	router := testRouter(service, false)
-	request := httptest.NewRequest(http.MethodGet, "/v1/auth/me", nil)
-	request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: "secret-token"})
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, request)
-
-	if response.Code != http.StatusOK {
-		t.Fatalf("status = %d, body = %q", response.Code, response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), `"roles":["admin"]`) {
-		t.Fatalf("body = %q", response.Body.String())
-	}
-}
-
-func testRouter(service AuthService, cookieSecure bool) http.Handler {
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return NewRouter(nil, service, nil, config.AuthConfig{CookieSecure: cookieSecure}, log)
-}
-
 type httpAuthStub struct {
-	session           entity.Session
-	loginError        error
-	user              entity.User
-	authenticateError error
+	session                       entity.Session
+	loginError, authenticateError error
+	receivedKey                   string
 }
 
-func (stub *httpAuthStub) Login(context.Context, string, string) (entity.Session, error) {
-	return stub.session, stub.loginError
+func (s *httpAuthStub) Login(_ context.Context, key string) (entity.Session, error) {
+	s.receivedKey = key
+	return s.session, s.loginError
 }
-
-func (stub *httpAuthStub) Authenticate(context.Context, string) (entity.User, error) {
-	return stub.user, stub.authenticateError
+func (s *httpAuthStub) Authenticate(context.Context, string) error { return s.authenticateError }
+func (s *httpAuthStub) Logout(context.Context, string) error       { return nil }
+func testRouter(service AuthService, secure bool) http.Handler {
+	return NewRouter(nil, service, nil, nil, config.AuthConfig{CookieSecure: secure}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
-
-func (stub *httpAuthStub) ChangePassword(context.Context, int64, string, string) error { return nil }
-
-func (stub *httpAuthStub) Logout(context.Context, string) error { return nil }
+func TestKeyLoginSetsSecureSessionCookie(t *testing.T) {
+	s := &httpAuthStub{session: entity.Session{Token: "session-token", ExpiresAt: time.Now().Add(time.Hour)}}
+	w := httptest.NewRecorder()
+	testRouter(s, true).ServeHTTP(w, httptest.NewRequest("POST", "/v1/auth/sessions", strings.NewReader(`{"key":"access-key"}`)))
+	if w.Code != 204 || s.receivedKey != "access-key" {
+		t.Fatalf("status=%d", w.Code)
+	}
+	cookies := w.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != middleware.SessionCookieName || !cookies[0].HttpOnly || !cookies[0].Secure || cookies[0].SameSite != http.SameSiteStrictMode {
+		t.Fatal("insecure session cookie")
+	}
+	if strings.Contains(w.Body.String(), "access-key") {
+		t.Fatal("key echoed in response")
+	}
+}
+func TestSessionRequiresAuthentication(t *testing.T) {
+	router := testRouter(&httpAuthStub{authenticateError: usecase.ErrUnauthorized}, false)
+	for _, cookie := range []bool{false, true} {
+		r := httptest.NewRequest("GET", "/v1/auth/session", nil)
+		if cookie {
+			r.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: "bad"})
+		}
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r)
+		if w.Code != 401 {
+			t.Fatal(w.Code)
+		}
+	}
+}
+func TestAuthenticatedSessionReturnsNoIdentity(t *testing.T) {
+	r := httptest.NewRequest("GET", "/v1/auth/session", nil)
+	r.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: "session"})
+	w := httptest.NewRecorder()
+	testRouter(&httpAuthStub{}, false).ServeHTTP(w, r)
+	if w.Code != 204 || w.Body.Len() != 0 {
+		t.Fatal(w.Code)
+	}
+}
+func TestOldCredentialsAreRejected(t *testing.T) {
+	w := httptest.NewRecorder()
+	testRouter(&httpAuthStub{}, false).ServeHTTP(w, httptest.NewRequest("POST", "/v1/auth/sessions", strings.NewReader(`{"username":"admin","password":"secret"}`)))
+	if w.Code != 400 {
+		t.Fatal(w.Code)
+	}
+}

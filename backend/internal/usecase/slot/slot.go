@@ -23,8 +23,8 @@ func (s *Service) List(ctx context.Context, public bool) ([]entity.Slot, error) 
 	return s.repository.List(ctx, public)
 }
 func (s *Service) Save(ctx context.Context, v entity.Slot) (entity.Slot, error) {
-	v.Title = strings.TrimSpace(v.Title)
-	if v.ID < 0 || v.Title == "" || utf8.RuneCountInString(v.Title) > 120 || v.StartsAt.IsZero() || !v.EndsAt.After(v.StartsAt) ||
+	v.Level = strings.TrimSpace(v.Level)
+	if v.ID < 0 || v.DirectionID <= 0 || utf8.RuneCountInString(v.Level) > 80 || v.StartsAt.IsZero() || !v.EndsAt.After(v.StartsAt) ||
 		(v.Format != "online" && v.Format != "offline") || (v.Kind != "individual" && v.Kind != "group") ||
 		v.Capacity < 1 || v.Capacity > 1000 || v.Occupied < 0 || v.Occupied > v.Capacity ||
 		(v.Kind == "individual" && v.Capacity != 1) ||
@@ -34,6 +34,9 @@ func (s *Service) Save(ctx context.Context, v entity.Slot) (entity.Slot, error) 
 	result, err := s.repository.Save(ctx, v)
 	if errors.Is(err, repo.ErrNotFound) {
 		err = usecase.ErrNotFound
+	}
+	if errors.Is(err, repo.ErrInvalidInput) {
+		err = usecase.ErrInvalidInput
 	}
 	return result, err
 }
