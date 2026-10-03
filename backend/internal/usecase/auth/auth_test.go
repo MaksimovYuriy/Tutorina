@@ -25,12 +25,12 @@ func TestLoginCreatesHashedSession(t *testing.T) {
 	fixedNow := time.Date(2026, time.September, 30, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return fixedNow }
 
-	session, err := service.Login(context.Background(), " Teacher@Example.com ", "correct horse battery staple")
+	session, err := service.Login(context.Background(), " Admin ", "correct horse battery staple")
 	if err != nil {
 		t.Fatalf("Login() error = %v", err)
 	}
-	if users.requestedEmail != "teacher@example.com" {
-		t.Fatalf("normalized email = %q", users.requestedEmail)
+	if users.requestedUsername != "admin" {
+		t.Fatalf("normalized username = %q", users.requestedUsername)
 	}
 	if session.Token == "" || !session.ExpiresAt.Equal(fixedNow.Add(2*time.Hour)) {
 		t.Fatalf("session = %#v", session)
@@ -50,13 +50,13 @@ func TestLoginDoesNotRevealCredentialFailure(t *testing.T) {
 		name  string
 		users *userRepositoryStub
 	}{
-		{name: "unknown email", users: &userRepositoryStub{credentialsError: repo.ErrNotFound}},
+		{name: "unknown username", users: &userRepositoryStub{credentialsError: repo.ErrNotFound}},
 		{name: "wrong password", users: &userRepositoryStub{credentials: entity.Credentials{User: entity.User{IsActive: true}, PasswordHash: string(validHash)}}},
 		{name: "inactive user", users: &userRepositoryStub{credentials: entity.Credentials{User: entity.User{IsActive: false}, PasswordHash: string(validHash)}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := New(test.users, &sessionRepositoryStub{}, time.Hour).Login(context.Background(), "user@example.com", "wrong password")
+			_, err := New(test.users, &sessionRepositoryStub{}, time.Hour).Login(context.Background(), "admin", "wrong password")
 			if !errors.Is(err, usecase.ErrInvalidCredentials) {
 				t.Fatalf("Login() error = %v", err)
 			}
@@ -91,13 +91,13 @@ type userRepositoryStub struct {
 	credentialsError    error
 	user                entity.User
 	userError           error
-	requestedEmail      string
+	requestedUsername   string
 	updatedUserID       int64
 	updatedPasswordHash string
 }
 
-func (stub *userRepositoryStub) FindCredentialsByEmail(_ context.Context, email string) (entity.Credentials, error) {
-	stub.requestedEmail = email
+func (stub *userRepositoryStub) FindCredentialsByUsername(_ context.Context, username string) (entity.Credentials, error) {
+	stub.requestedUsername = username
 	return stub.credentials, stub.credentialsError
 }
 

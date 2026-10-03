@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/mail"
+	"regexp"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -15,6 +15,8 @@ import (
 )
 
 const minimumPasswordLength = 12
+
+var usernamePattern = regexp.MustCompile(`^[a-z0-9_-]{3,64}$`)
 
 type Repository interface {
 	Create(context.Context, string, string, []entity.Role) (entity.User, error)
@@ -28,14 +30,13 @@ func New(repository Repository) *Service {
 	return &Service{repository: repository}
 }
 
-func (service *Service) Create(ctx context.Context, email, password string, roles []entity.Role) (entity.User, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-	address, err := mail.ParseAddress(email)
-	if err != nil || address.Address != email {
-		return entity.User{}, fmt.Errorf("%w: invalid email", usecase.ErrInvalidInput)
+func (service *Service) Create(ctx context.Context, username, password string, roles []entity.Role) (entity.User, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	if !usernamePattern.MatchString(username) {
+		return entity.User{}, fmt.Errorf("%w: invalid username", usecase.ErrInvalidInput)
 	}
-	if len(password) < minimumPasswordLength {
-		return entity.User{}, fmt.Errorf("%w: password must contain at least %d characters", usecase.ErrInvalidInput, minimumPasswordLength)
+	if len(password) < minimumPasswordLength || len(password) > 72 {
+		return entity.User{}, fmt.Errorf("%w: password must contain %d to 72 bytes", usecase.ErrInvalidInput, minimumPasswordLength)
 	}
 	if len(roles) == 0 {
 		return entity.User{}, fmt.Errorf("%w: at least one role is required", usecase.ErrInvalidInput)
@@ -57,7 +58,7 @@ func (service *Service) Create(ctx context.Context, email, password string, role
 	if err != nil {
 		return entity.User{}, err
 	}
-	created, err := service.repository.Create(ctx, email, string(passwordHash), roles)
+	created, err := service.repository.Create(ctx, username, string(passwordHash), roles)
 	if errors.Is(err, repo.ErrConflict) {
 		return entity.User{}, usecase.ErrConflict
 	}

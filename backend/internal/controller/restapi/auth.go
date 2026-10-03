@@ -30,7 +30,7 @@ type authController struct {
 }
 
 type loginRequest struct {
-	Email    string `json:"email"`
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
@@ -45,8 +45,8 @@ type userResource struct {
 }
 
 type userAttributes struct {
-	Email string        `json:"email"`
-	Roles []entity.Role `json:"roles"`
+	Username string        `json:"username"`
+	Roles    []entity.Role `json:"roles"`
 }
 
 func newAuthController(service AuthService, cookieSecure bool) *authController {
@@ -59,9 +59,9 @@ func (controller *authController) login(w http.ResponseWriter, r *http.Request) 
 		apiresponse.WriteError(w, http.StatusBadRequest, "invalid_request", "Invalid request", err.Error())
 		return
 	}
-	session, err := controller.service.Login(r.Context(), request.Email, request.Password)
+	session, err := controller.service.Login(r.Context(), request.Username, request.Password)
 	if errors.Is(err, usecase.ErrInvalidCredentials) {
-		apiresponse.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password", "")
+		apiresponse.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "Invalid username or password", "")
 		return
 	}
 	if err != nil {
@@ -94,7 +94,7 @@ func (controller *authController) changePassword(w http.ResponseWriter, r *http.
 		apiresponse.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "Current password is incorrect", "")
 		return
 	case errors.Is(err, usecase.ErrInvalidInput):
-		apiresponse.WriteError(w, http.StatusBadRequest, "invalid_password", "New password must contain at least 12 characters", "")
+		apiresponse.WriteError(w, http.StatusBadRequest, "invalid_password", "New password must contain 12 to 72 bytes", "")
 		return
 	case err != nil:
 		apiresponse.WriteError(w, http.StatusInternalServerError, "internal_error", "Internal server error", "")
@@ -124,8 +124,8 @@ func (controller *authController) me(w http.ResponseWriter, r *http.Request) {
 		Type: "users",
 		ID:   strconv.FormatInt(user.ID, 10),
 		Attributes: userAttributes{
-			Email: user.Email,
-			Roles: user.Roles,
+			Username: user.Username,
+			Roles:    user.Roles,
 		},
 	}})
 }

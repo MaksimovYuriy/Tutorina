@@ -5,17 +5,16 @@ import "time"
 type Role string
 
 const (
-	RoleTeacher Role = "teacher"
-	RoleAdmin   Role = "admin"
+	RoleAdmin Role = "admin"
 )
 
 func (role Role) Valid() bool {
-	return role == RoleTeacher || role == RoleAdmin
+	return role == RoleAdmin
 }
 
 type User struct {
 	ID        int64
-	Email     string
+	Username  string
 	Roles     []Role
 	IsActive  bool
 	CreatedAt time.Time

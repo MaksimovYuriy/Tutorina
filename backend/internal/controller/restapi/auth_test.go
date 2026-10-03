@@ -19,7 +19,7 @@ import (
 func TestLoginSetsSecureSessionCookie(t *testing.T) {
 	service := &httpAuthStub{session: entity.Session{Token: "secret-token", ExpiresAt: time.Now().Add(time.Hour)}}
 	router := testRouter(service, true)
-	request := httptest.NewRequest(http.MethodPost, "/v1/auth/sessions", strings.NewReader(`{"email":"teacher@example.com","password":"password"}`))
+	request := httptest.NewRequest(http.MethodPost, "/v1/auth/sessions", strings.NewReader(`{"username":"admin","password":"password"}`))
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 
@@ -42,7 +42,7 @@ func TestMeRequiresAuthentication(t *testing.T) {
 }
 
 func TestMeReturnsRoles(t *testing.T) {
-	service := &httpAuthStub{user: entity.User{ID: 7, Email: "teacher@example.com", Roles: []entity.Role{entity.RoleAdmin, entity.RoleTeacher}, IsActive: true}}
+	service := &httpAuthStub{user: entity.User{ID: 7, Username: "admin", Roles: []entity.Role{entity.RoleAdmin}, IsActive: true}}
 	router := testRouter(service, false)
 	request := httptest.NewRequest(http.MethodGet, "/v1/auth/me", nil)
 	request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: "secret-token"})
@@ -52,14 +52,14 @@ func TestMeReturnsRoles(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"roles":["admin","teacher"]`) {
+	if !strings.Contains(response.Body.String(), `"roles":["admin"]`) {
 		t.Fatalf("body = %q", response.Body.String())
 	}
 }
 
 func testRouter(service AuthService, cookieSecure bool) http.Handler {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return NewRouter(nil, service, nil, nil, nil, nil, nil, config.AuthConfig{CookieSecure: cookieSecure}, log)
+	return NewRouter(nil, service, nil, config.AuthConfig{CookieSecure: cookieSecure}, log)
 }
 
 type httpAuthStub struct {

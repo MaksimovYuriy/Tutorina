@@ -18,8 +18,8 @@ import (
 )
 
 func main() {
-	email := flag.String("email", "", "user email")
-	roleList := flag.String("roles", "teacher", "comma-separated roles: teacher,admin")
+	username := flag.String("username", "", "user username")
+	roleList := flag.String("roles", "admin", "comma-separated roles: admin")
 	flag.Parse()
 
 	password := os.Getenv("BOOTSTRAP_PASSWORD")
@@ -42,14 +42,14 @@ func main() {
 	defer database.Close()
 
 	service := userusecase.New(userrepo.New(database))
-	created, err := service.Create(context.Background(), *email, password, roles)
+	created, err := service.Create(context.Background(), *username, password, roles)
 	if errors.Is(err, usecase.ErrConflict) {
-		log.Fatal("a user with this email already exists")
+		log.Fatal("a user with this username already exists")
 	}
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("created user %s with id %d and roles %v\n", created.Email, created.ID, created.Roles)
+	fmt.Printf("created user %s with id %d and roles %v\n", created.Username, created.ID, created.Roles)
 }
 
 func parseRoles(value string) ([]entity.Role, error) {

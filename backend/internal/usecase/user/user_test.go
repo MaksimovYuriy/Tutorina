@@ -16,17 +16,17 @@ func TestCreateNormalizesUserAndHashesPassword(t *testing.T) {
 	service := New(repository)
 	_, err := service.Create(
 		context.Background(),
-		" Teacher@Example.com ",
+		" Admin ",
 		"correct horse battery staple",
-		[]entity.Role{entity.RoleTeacher, entity.RoleAdmin, entity.RoleTeacher},
+		[]entity.Role{entity.RoleAdmin, entity.RoleAdmin},
 	)
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
-	if repository.email != "teacher@example.com" {
-		t.Fatalf("email = %q", repository.email)
+	if repository.username != "admin" {
+		t.Fatalf("username = %q", repository.username)
 	}
-	if len(repository.roles) != 2 {
+	if len(repository.roles) != 1 {
 		t.Fatalf("roles = %#v", repository.roles)
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(repository.passwordHash), []byte("correct horse battery staple")); err != nil {
@@ -37,17 +37,17 @@ func TestCreateNormalizesUserAndHashesPassword(t *testing.T) {
 func TestCreateRejectsInvalidInput(t *testing.T) {
 	tests := []struct {
 		name     string
-		email    string
+		username string
 		password string
 		roles    []entity.Role
 	}{
-		{name: "email", email: "not-an-email", password: "a sufficiently long password", roles: []entity.Role{entity.RoleTeacher}},
-		{name: "password", email: "user@example.com", password: "short", roles: []entity.Role{entity.RoleTeacher}},
-		{name: "roles", email: "user@example.com", password: "a sufficiently long password"},
+		{name: "username", username: "invalid username", password: "a sufficiently long password", roles: []entity.Role{entity.RoleAdmin}},
+		{name: "password", username: "admin", password: "short", roles: []entity.Role{entity.RoleAdmin}},
+		{name: "roles", username: "admin", password: "a sufficiently long password"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := New(&repositoryStub{}).Create(context.Background(), test.email, test.password, test.roles)
+			_, err := New(&repositoryStub{}).Create(context.Background(), test.username, test.password, test.roles)
 			if !errors.Is(err, usecase.ErrInvalidInput) {
 				t.Fatalf("Create() error = %v", err)
 			}
@@ -56,14 +56,14 @@ func TestCreateRejectsInvalidInput(t *testing.T) {
 }
 
 type repositoryStub struct {
-	email        string
+	username     string
 	passwordHash string
 	roles        []entity.Role
 }
 
-func (stub *repositoryStub) Create(_ context.Context, email, passwordHash string, roles []entity.Role) (entity.User, error) {
-	stub.email = email
+func (stub *repositoryStub) Create(_ context.Context, username, passwordHash string, roles []entity.Role) (entity.User, error) {
+	stub.username = username
 	stub.passwordHash = passwordHash
 	stub.roles = append([]entity.Role(nil), roles...)
-	return entity.User{ID: 1, Email: email, Roles: roles}, nil
+	return entity.User{ID: 1, Username: username, Roles: roles}, nil
 }

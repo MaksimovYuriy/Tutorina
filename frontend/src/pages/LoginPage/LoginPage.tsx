@@ -1,10 +1,19 @@
 import { useState, type FormEvent } from 'react'
-import { Alert, Box, Button, CircularProgress, InputAdornment, Stack, TextField, Typography } from '@mui/material'
-import { ApiError, getCurrentUser, login } from '../../services/api'
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  InputAdornment,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material'
+import { ApiError, login } from '../../services/api'
 import './LoginPage.css'
 
 export function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -15,12 +24,11 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await login(email, password)
-      const user = await getCurrentUser()
-      window.location.assign(user.roles.includes('admin') ? '/admin' : '/teacher')
+      await login(username, password)
+      window.location.assign('/admin')
     } catch (caughtError: unknown) {
       if (caughtError instanceof ApiError && caughtError.status === 401) {
-        setError('Проверьте почту и пароль — они не подошли.')
+        setError('Проверьте логин и пароль — они не подошли.')
       } else {
         setError('Не удалось войти. Пожалуйста, попробуйте ещё раз.')
       }
@@ -35,17 +43,21 @@ export function LoginPage() {
         <div className="story-orb story-orb-two" />
 
         <a className="brand" href="/" aria-label="Tutorina">
-          <span className="brand-mark" aria-hidden="true">T</span>
+          <span className="brand-mark" aria-hidden="true">
+            T
+          </span>
           <span>Tutorina</span>
         </a>
 
         <div className="story-copy">
-          <p className="eyebrow">Пространство преподавателей</p>
+          <p className="eyebrow">Управление расписанием</p>
           <Typography component="h1" variant="h1" className="story-title">
-            Занятия в одном<br />спокойном ритме
+            Занятия в одном
+            <br />
+            спокойном ритме
           </Typography>
           <Typography className="story-description">
-            Расписание, заявки и ученики собраны рядом — чтобы оставалось больше времени на преподавание.
+            Публикуйте свободные слоты и управляйте занятостью в одном месте.
           </Typography>
         </div>
 
@@ -60,26 +72,38 @@ export function LoginPage() {
           <div className="lesson-row">
             <span className="lesson-time">14:00</span>
             <span className="lesson-dot lesson-dot-violet" />
-            <span><strong>Английский язык</strong><small>Индивидуально · 60 минут</small></span>
+            <span>
+              <strong>Английский язык</strong>
+              <small>Индивидуально · 60 минут</small>
+            </span>
           </div>
           <div className="lesson-row">
             <span className="lesson-time">16:30</span>
             <span className="lesson-dot lesson-dot-yellow" />
-            <span><strong>Подготовка к экзамену</strong><small>Группа · 3 ученика</small></span>
+            <span>
+              <strong>Подготовка к экзамену</strong>
+              <small>Группа · 3 свободных места</small>
+            </span>
           </div>
         </div>
       </section>
 
       <section className="login-panel">
-        <Box component="form" className="login-form" onSubmit={handleSubmit} noValidate>
+        <Box component="form" className="login-form" onSubmit={handleSubmit}>
           <Stack spacing={3.5}>
             <div>
-              <a className="mobile-brand" href="/" aria-label="Tutorina — на главную">Tutorina</a>
+              <a
+                className="mobile-brand"
+                href="/"
+                aria-label="Tutorina — на главную"
+              >
+                Tutorina
+              </a>
               <Typography component="h2" variant="h2" className="login-title">
                 С возвращением
               </Typography>
               <Typography color="text.secondary" className="login-subtitle">
-                Войдите в личный кабинет преподавателя
+                Войдите в админку расписания
               </Typography>
             </div>
 
@@ -87,11 +111,11 @@ export function LoginPage() {
 
             <Stack spacing={2.25}>
               <TextField
-                label="Электронная почта"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                autoComplete="email"
+                label="Логин"
+                type="text"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="username"
                 autoFocus
                 required
                 fullWidth
@@ -112,7 +136,9 @@ export function LoginPage() {
                           type="button"
                           className="password-toggle"
                           onClick={() => setShowPassword((visible) => !visible)}
-                          aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                          aria-label={
+                            showPassword ? 'Скрыть пароль' : 'Показать пароль'
+                          }
                         >
                           {showPassword ? 'Скрыть' : 'Показать'}
                         </Button>
@@ -123,17 +149,32 @@ export function LoginPage() {
               />
             </Stack>
 
-            <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth>
-              {submitting ? <CircularProgress size={22} color="inherit" aria-label="Выполняется вход" /> : 'Войти в кабинет'}
+            <Button
+              type="submit"
+              variant="contained"
+              size="large"
+              disabled={submitting}
+              fullWidth
+            >
+              {submitting ? (
+                <CircularProgress
+                  size={22}
+                  color="inherit"
+                  aria-label="Выполняется вход"
+                />
+              ) : (
+                'Войти в кабинет'
+              )}
             </Button>
 
             <Typography className="login-help" color="text.secondary">
-              Нет доступа или забыли пароль? Обратитесь к администратору проекта.
+              Нет доступа или забыли пароль? Обратитесь к администратору
+              проекта.
             </Typography>
           </Stack>
         </Box>
 
-        <p className="login-footer">Tutorina · личный кабинет</p>
+        <p className="login-footer">Tutorina · админка расписания</p>
       </section>
     </main>
   )

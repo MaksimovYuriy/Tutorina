@@ -12,19 +12,12 @@ import (
 	"github.com/maksimovyuriy/tutorina/backend/internal/config"
 	"github.com/maksimovyuriy/tutorina/backend/internal/controller/restapi"
 	"github.com/maksimovyuriy/tutorina/backend/internal/lib/logger"
-	applicationrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/application"
-	lessonrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/lesson"
-	offerrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/offer"
 	sessionrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/session"
-	teacherprofilerepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/teacherprofile"
+	slotrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/slot"
 	userrepo "github.com/maksimovyuriy/tutorina/backend/internal/repo/user"
-	"github.com/maksimovyuriy/tutorina/backend/internal/storage/localphotos"
 	"github.com/maksimovyuriy/tutorina/backend/internal/storage/postgres"
-	applicationusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/application"
 	authusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/auth"
-	lessonusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/lesson"
-	offerusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/offer"
-	teacherprofileusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/teacherprofile"
+	slotusecase "github.com/maksimovyuriy/tutorina/backend/internal/usecase/slot"
 )
 
 func Run() error {
@@ -47,15 +40,8 @@ func Run() error {
 	users := userrepo.New(database)
 	sessions := sessionrepo.New(database)
 	auth := authusecase.New(users, sessions, cfg.Auth.SessionTTL)
-	photos, err := localphotos.New(cfg.Media.TeacherPhotosPath)
-	if err != nil {
-		return err
-	}
-	teacherProfiles := teacherprofileusecase.New(teacherprofilerepo.New(database), photos, log)
-	offers := offerusecase.New(offerrepo.New(database))
-	lessons := lessonusecase.New(lessonrepo.New(database))
-	applications := applicationusecase.New(applicationrepo.New(database))
-	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, teacherProfiles, offers, lessons, applications, photos, cfg.Auth, log), log)
+	slots := slotusecase.New(slotrepo.New(database))
+	server := restapi.NewServer(cfg.HTTP, restapi.NewRouter(database, auth, slots, cfg.Auth, log), log)
 	serverErrors := make(chan error, 1)
 	go func() {
 		log.Info("API started", slog.String("address", server.Addr))

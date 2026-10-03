@@ -20,8 +20,10 @@ export const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily:
+      'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     h1: {
+      fontSize: 'clamp(2rem, 5vw, 3.5rem)',
       fontWeight: 650,
       letterSpacing: '-0.045em',
     },
@@ -29,6 +31,7 @@ export const theme = createTheme({
       fontWeight: 650,
       letterSpacing: '-0.035em',
     },
+    h3: { fontSize: '1.3rem', fontWeight: 650 },
     button: {
       fontWeight: 650,
       textTransform: 'none',

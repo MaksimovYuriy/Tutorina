@@ -17,7 +17,7 @@ import (
 )
 
 type UserRepository interface {
-	FindCredentialsByEmail(context.Context, string) (entity.Credentials, error)
+	FindCredentialsByUsername(context.Context, string) (entity.Credentials, error)
 	FindCredentialsByID(context.Context, int64) (entity.Credentials, error)
 	UpdatePassword(context.Context, int64, string) error
 	FindByID(context.Context, int64) (entity.User, error)
@@ -41,9 +41,9 @@ func New(users UserRepository, sessions SessionRepository, ttl time.Duration) *S
 	return &Service{users: users, sessions: sessions, ttl: ttl, now: time.Now}
 }
 
-func (service *Service) Login(ctx context.Context, email, password string) (entity.Session, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-	credentials, err := service.users.FindCredentialsByEmail(ctx, email)
+func (service *Service) Login(ctx context.Context, username, password string) (entity.Session, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	credentials, err := service.users.FindCredentialsByUsername(ctx, username)
 	if errors.Is(err, repo.ErrNotFound) {
 		return entity.Session{}, usecase.ErrInvalidCredentials
 	}
@@ -87,7 +87,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (entity.
 }
 
 func (service *Service) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error {
-	if userID <= 0 || len(newPassword) < 12 {
+	if userID <= 0 || len(newPassword) < 12 || len(newPassword) > 72 {
 		return usecase.ErrInvalidInput
 	}
 	credentials, err := service.users.FindCredentialsByID(ctx, userID)

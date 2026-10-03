@@ -19,16 +19,16 @@ func New(database *sql.DB) *Repo {
 	return &Repo{database: database}
 }
 
-func (r *Repo) FindCredentialsByEmail(ctx context.Context, email string) (entity.Credentials, error) {
+func (r *Repo) FindCredentialsByUsername(ctx context.Context, username string) (entity.Credentials, error) {
 	const query = `
-		SELECT id, email, password_hash, is_active, created_at, updated_at
+		SELECT id, username, password_hash, is_active, created_at, updated_at
 		FROM users
-		WHERE email = $1
+		WHERE username = $1
 	`
 	var credentials entity.Credentials
-	err := r.database.QueryRowContext(ctx, query, email).Scan(
+	err := r.database.QueryRowContext(ctx, query, username).Scan(
 		&credentials.ID,
-		&credentials.Email,
+		&credentials.Username,
 		&credentials.PasswordHash,
 		&credentials.IsActive,
 		&credentials.CreatedAt,
@@ -51,14 +51,14 @@ func (r *Repo) FindCredentialsByEmail(ctx context.Context, email string) (entity
 
 func (r *Repo) FindByID(ctx context.Context, id int64) (entity.User, error) {
 	const query = `
-		SELECT id, email, is_active, created_at, updated_at
+		SELECT id, username, is_active, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
 	var user entity.User
 	err := r.database.QueryRowContext(ctx, query, id).Scan(
 		&user.ID,
-		&user.Email,
+		&user.Username,
 		&user.IsActive,
 		&user.CreatedAt,
 		&user.UpdatedAt,
@@ -80,14 +80,14 @@ func (r *Repo) FindByID(ctx context.Context, id int64) (entity.User, error) {
 
 func (r *Repo) FindCredentialsByID(ctx context.Context, id int64) (entity.Credentials, error) {
 	const query = `
-		SELECT id, email, password_hash, is_active, created_at, updated_at
+		SELECT id, username, password_hash, is_active, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
 	var credentials entity.Credentials
 	err := r.database.QueryRowContext(ctx, query, id).Scan(
 		&credentials.ID,
-		&credentials.Email,
+		&credentials.Username,
 		&credentials.PasswordHash,
 		&credentials.IsActive,
 		&credentials.CreatedAt,
@@ -124,7 +124,7 @@ func (r *Repo) UpdatePassword(ctx context.Context, userID int64, passwordHash st
 	}
 	return nil
 }
-func (r *Repo) Create(ctx context.Context, email, passwordHash string, roles []entity.Role) (entity.User, error) {
+func (r *Repo) Create(ctx context.Context, username, passwordHash string, roles []entity.Role) (entity.User, error) {
 	transaction, err := r.database.BeginTx(ctx, nil)
 	if err != nil {
 		return entity.User{}, fmt.Errorf("begin create user transaction: %w", err)
@@ -132,13 +132,13 @@ func (r *Repo) Create(ctx context.Context, email, passwordHash string, roles []e
 	defer transaction.Rollback()
 
 	const createUser = `
-		INSERT INTO users (email, password_hash)
+		INSERT INTO users (username, password_hash)
 		VALUES ($1, $2)
-		RETURNING id, email, is_active, created_at, updated_at
+		RETURNING id, username, is_active, created_at, updated_at
 	`
 	var user entity.User
-	err = transaction.QueryRowContext(ctx, createUser, email, passwordHash).Scan(
-		&user.ID, &user.Email, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+	err = transaction.QueryRowContext(ctx, createUser, username, passwordHash).Scan(
+		&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		var postgresError *pgconn.PgError

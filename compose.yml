@@ -49,15 +49,12 @@ services:
       HTTP_IDLE_TIMEOUT: ${HTTP_IDLE_TIMEOUT:-60s}
       AUTH_SESSION_TTL: ${AUTH_SESSION_TTL:-24h}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
-      MEDIA_TEACHER_PHOTOS_PATH: /data/teacher-photos
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_USER: ${DB_USER:-tutorina}
       DB_PASSWORD: ${DB_PASSWORD:-tutorina}
       DB_NAME: ${DB_NAME:-tutorina}
       DB_SSL_MODE: ${DB_SSL_MODE:-disable}
-    volumes:
-      - teacher_photos:/data/teacher-photos
     healthcheck:
       test: ["CMD", "/app/tutorina-api", "healthcheck"]
       interval: 10s
@@ -89,7 +86,7 @@ services:
   create-user:
     build:
       context: ./backend
-    command: ["./tutorina-user", "-email", "${BOOTSTRAP_EMAIL:-}", "-roles", "${BOOTSTRAP_ROLES:-teacher}"]
+    command: ["./tutorina-user", "-username", "${BOOTSTRAP_USERNAME:-admin}", "-roles", "admin"]
     profiles: ["tools"]
     environment:
       BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
@@ -112,7 +109,7 @@ services:
       POSTGRES_USER: ${DB_USER:-tutorina}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-tutorina}
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - schedule_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 3s
@@ -121,7 +118,6 @@ services:
     logging: *default-logging
 
 volumes:
-  postgres_data:
-  teacher_photos:
+  schedule_data:
   caddy_data:
   caddy_config:
